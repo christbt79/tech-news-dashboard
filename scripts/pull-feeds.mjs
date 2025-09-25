@@ -11,7 +11,6 @@ const FEEDS = [
   'https://www.nextplatform.com/feed/',
   'https://siliconangle.com/feed/',
   // Data center
-  'https://www.datacenterdynamics.com/en/rss/',
   'https://www.datacenterknowledge.com/rss.xml',
   // AI
   'https://venturebeat.com/category/ai/feed/',
@@ -19,6 +18,7 @@ const FEEDS = [
   'https://www.artificialintelligence-news.com/feed/',
   'https://syncedreview.com/feed/',
   'https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml',
+  'https://www.itprotoday.com/rss.xml',
 ];
 
 async function fetchText(u){
