@@ -9,7 +9,6 @@
 <title>Enterprise • DC • AI — Rolling News</title>
 <style>
   :root {
-    /* Dark theme */
     --bg: #0b0f14;
     --panel: #0f1620;
     --panel-contrast: #121a26;
@@ -19,6 +18,7 @@
     --shadow: 0 18px 60px rgba(0,0,0,.45);
     --ticker-bg: #0f1620;
     --divider: #101826;
+    --ticker-h: 48px; /* ticker height for layout math */
   }
   .theme-sepia {
     --bg: #19130c;
@@ -42,7 +42,7 @@
   header {
     padding: 10px 16px;
     background: var(--panel);
-    position: sticky; top: 0; z-index: 2;
+    position: sticky; top: 0; z-index: 3;
     border-bottom: 1px solid var(--divider);
     display:flex; align-items:center; gap:12px;
   }
@@ -51,15 +51,14 @@
   .ts { opacity:.75; font-size:14px; }
   .clock { font-variant-numeric: tabular-nums; }
   .health {
-    width:10px; height:10px; border-radius:50%;
-    box-shadow: 0 0 0 2px rgba(0,0,0,.25);
+    width:10px; height:10px; border-radius:50%; box-shadow: 0 0 0 2px rgba(0,0,0,.25);
   }
   .health.ok    { background:#21d07a; }
   .health.stale { background:#e0a800; }
   .health.err   { background:#e5534b; }
   .theme-btn { font-size:13px; padding:8px 10px; border-radius:999px; background: var(--panel-contrast); color: var(--text); border: 1px solid var(--divider); cursor: pointer; }
 
-  main { flex:1; display:flex; align-items:center; justify-content:center; padding:22px 16px 64px; }
+  main { flex:1; display:flex; align-items:center; justify-content:center; padding:22px 16px calc(var(--ticker-h) + 90px); }
   .card {
     width: 100%; max-width: 960px;
     border-radius: 18px;
@@ -75,23 +74,24 @@
   .subhead { font-size: 19px; line-height: 1.45; opacity:.95; margin: 0 0 12px; font-style: italic; }
   .bodycopy { font-size: 18px; line-height: 1.58; opacity:.98; margin:0; }
 
+  /* Controls sit ABOVE ticker and are always clickable */
   footer {
-    position: fixed; left:0; right:0; bottom: 24px;
+    position: fixed; left:0; right:0;
+    bottom: calc(var(--ticker-h) + 10px);
+    z-index: 3;
     display:flex; gap:10px; align-items:center; justify-content:center;
-    pointer-events:none; /* allow ticker interactions below */
   }
-  .btn { pointer-events:auto; font-size:14px; padding:10px 14px; border-radius:999px; background: var(--panel); color: var(--text); border: 1px solid var(--divider); cursor: pointer; }
+  .btn { font-size:14px; padding:10px 14px; border-radius:999px; background: var(--panel); color: var(--text); border: 1px solid var(--divider); cursor: pointer; }
   .btn:active { transform: translateY(1px); }
-  .status { pointer-events:auto; font-size:12px; opacity:.75; background: var(--panel); border: 1px solid var(--divider); border-radius: 999px; padding: 8px 10px; }
+  .status { font-size:12px; opacity:.75; background: var(--panel); border: 1px solid var(--divider); border-radius: 999px; padding: 8px 10px; }
 
-  /* Ticker */
-  .ticker { position:fixed; bottom:0; left:0; width:100%; background: var(--ticker-bg); border-top:1px solid var(--divider); white-space:nowrap; overflow:hidden; }
+  /* Ticker (below everything else) */
+  .ticker { position:fixed; bottom:0; left:0; width:100%; background: var(--ticker-bg); border-top:1px solid var(--divider); white-space:nowrap; overflow:hidden; z-index: 2; height: var(--ticker-h); }
   .ticker-inner { display:inline-block; padding:12px 0; animation:scrollLeft 240s linear infinite; }
   .ticker.paused .ticker-inner { animation-play-state: paused; }
   .tick { display:inline-block; padding:0 36px; font-size:18px; opacity:.95; }
   @keyframes scrollLeft { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-  /* Responsive tweaks */
   @media (max-width: 480px) {
     .title{font-size:24px} .subhead,.bodycopy{font-size:16px}
   }
@@ -140,7 +140,7 @@
 <script>
 (function(){
   /* ===== Version ===== */
-  var APP_VERSION = 'v1.8-polish';
+  var APP_VERSION = 'v1.9-controls+150w';
 
   /* ===== Config (GitHub Pages) ===== */
   var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json?v=' + APP_VERSION;
@@ -151,7 +151,7 @@
   // Ticker controls
   var TICKER_MAX = 6;        // up to 6 headlines
   var TICKER_HOURS = 24;     // last 24 hours
-  var TICKER_SECONDS = 240;  // slow scroll (also set in CSS)
+  var TICKER_SECONDS = 240;  // slow scroll
 
   // Health thresholds (minutes)
   var STALE_MIN = 20;
@@ -210,13 +210,13 @@
     for(k in B){ if(B.hasOwnProperty(k) && !A[k]) uni++; }
     return uni ? inter/uni : 0;
   }
-  function shortHash(s){ // 12-char content hash for coarse dupes
+  function shortHash(s){
     var t = norm(s), i, h=0; for(i=0;i<t.length;i++){ h=((h<<5)-h)+t.charCodeAt(i); h|=0; }
     return (h>>>0).toString(36).slice(0,12);
   }
 
-  // Build sub-head (≤30 words) and body (≤150 words)
-  function buildSubAndBody(title, raw){
+  // Build sub-head (≤30 words) and body (target 150 words). If too short, pad with neutral context.
+  function buildSubAndBody(title, raw, sourceHost){
     var txt = htmlToTextNoBullets(raw || title || '');
     var sentences = txt.split(/(?<=[.!?])\s+/);
     if (sentences.length < 2) sentences = txt.split(/[;,:]\s+/);
@@ -236,17 +236,28 @@
       if (jaccard(t, title) > 0.7) continue;
       if (sub && jaccard(t, sub) > 0.7) continue;
       acc.push(t);
-      if (acc.join(' ').split(/\s+/).length >= 180) break;
+      if (acc.join(' ').split(/\s+/).length >= 200) break;
     }
     bodyText = clampWords(acc.join(' '), 150);
-    if (wordCount(bodyText) < 60) {
-      var fallback = txt;
-      if (sub) fallback = fallback.replace(sub, '');
-      bodyText = clampWords((acc.join(' ') + ' ' + fallback), 150);
+
+    // If still short, add generic, non-factual context to reach ~150 words
+    if (wordCount(bodyText) < 120) {
+      var generic = [
+        "Context: This update reflects ongoing activity across enterprise IT, data center infrastructure, and AI adoption. ",
+        "Implications: Teams may evaluate performance, cost, security, and integration with existing cloud or on-prem stacks. ",
+        "Considerations: Roadmaps, availability, regional support, partner ecosystems, and licensing often shape near-term decisions. ",
+        "Next steps: For accurate details, timelines, and benchmarks, review the source article directly and verify with the vendor. "
+      ].join('');
+      var safeTail = "Note: The feed provided limited summary text; this body adds neutral context and does not assert new facts beyond the linked headline. ";
+      var pad = (sub? "" : "Summary: ") + generic + safeTail + (sourceHost? ("Source: "+sourceHost+". ") : "");
+      bodyText = clampWords((bodyText + " " + pad), 155);
     }
+
     if (!sub) {
       sub = clampWords(bodyText, 30);
-      if (jaccard(sub, bodyText) > 0.8) bodyText = clampWords(txt, 150);
+      if (jaccard(sub, bodyText) > 0.8) {
+        sub = clampWords(txt, 30);
+      }
     }
     return { subhead: sub, body: bodyText };
   }
@@ -301,18 +312,15 @@
     for(i=0;i<arr.length;i++){
       it = arr[i];
       t = it.title || '';
-      h = shortHash((it.raw||'').slice(0,600)); // small content hash
-      // exact link/title hash guard
+      h = shortHash((it.raw||'').slice(0,600));
       var key = ((it.link||'')+'|'+t).toLowerCase();
       if (seenHashes[key]) continue;
-      // near-dup by title similarity vs items already kept
       var dupe = false;
       for (var j=0;j<seenTitles.length;j++){
         var other = seenTitles[j];
         if (jaccard(t, other) > 0.85) { dupe = true; break; }
       }
       if (dupe) continue;
-      // content hash collision check
       if (h && seenHashes[h]) continue;
 
       out.push(it);
@@ -325,7 +333,7 @@
 
   // Build final display item
   function buildItem(raw){
-    var pieces = buildSubAndBody(raw.title, raw.raw);
+    var pieces = buildSubAndBody(raw.title, raw.raw, raw.source);
     return {
       title: raw.title,
       link: raw.link,
@@ -412,7 +420,7 @@
     t.onclick = togglePause;
   }
 
-  // Render card
+  // Render card + favicon
   function setFavicon(hostname){
     var ico = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent('https://' + hostname);
     var img = $('favicon'), st = $('sourceText');
@@ -429,16 +437,14 @@
     $('subhead').textContent = it.subhead || '';
     $('body').textContent = it.body || '';
 
-    // persist last index for offline boot continuity
     saveIdx(idx);
-
     setHeaderStatus();
   }
   function next(){ idx=(idx+1)%items.length; render(); }
   function prev(){ idx=(idx-1+items.length)%items.length; render(); }
   function startRotate(){ if(timer) clearInterval(timer); timer=setInterval(function(){ if(!paused&&items.length) next(); }, ROTATE_MS); }
 
-  // Refresh pipeline with offline cache fallback
+  // Use data pipeline
   function useData(data){
     try{
       var merged=[], results=(data&&data.results)||[], r, i;
@@ -454,13 +460,9 @@
       for(ii=0; ii<merged.length; ii++){ built.push(buildItem(merged[ii])); }
 
       items = built;
-      // restore last index if possible
       var li = loadIdx(); if (li && li < items.length) idx = li; else idx = 0;
 
-      // update UI
       render(); updateTicker(items);
-
-      // cache raw feed JSON for offline
       saveCache(data);
 
       lastFetchOK = true; lastFetchAt = Date.now();
@@ -475,7 +477,6 @@
     setStatus('Refreshing…');
     xhrJSON(FEEDS_URL + '&t=' + Date.now(), function(err, data){
       if(err || !data){
-        // Try offline cache
         var cache = loadCache();
         lastFetchOK = false;
         if (cache && cache.data){
@@ -498,7 +499,6 @@
 
   // Init
   refresh(); startRotate(); setInterval(refresh, REFRESH_MS);
-  // If we have cache, render something immediately to avoid blank screen on boot
   var cached = loadCache(); if (cached && cached.data){ try{ useData(cached.data); }catch(_e){} }
 
 })();
