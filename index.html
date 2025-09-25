@@ -8,82 +8,177 @@
 <meta http-equiv="Expires" content="0" />
 <title>Enterprise • DC • AI — Rolling News</title>
 <style>
-  html, body { height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
-  body { background:#0b0f14; color:#e6edf3; }
-  .wrap { display:flex; flex-direction:column; height:100%; }
-  header { padding:10px 16px; font-size:18px; letter-spacing:.04em; background:#0f1620; position:sticky; top:0; z-index:2; }
-  header .ts { opacity:.7; font-size:14px; }
-  main { flex:1; display:flex; align-items:center; justify-content:center; padding:16px; }
-  .card { width:100%; max-width:860px; border-radius:16px; background:#0f1620; box-shadow:0 10px 30px rgba(0,0,0,.35); padding:22px 24px; }
-  .kicker { font-size:14px; text-transform:uppercase; letter-spacing:.14em; opacity:.7; margin-bottom:8px; }
-  .title { font-size:28px; line-height:1.2; margin:0 0 8px; }
-  .meta { font-size:13px; opacity:.7; margin-bottom:12px; }
-  .subhead { font-size:18px; line-height:1.4; opacity:.9; margin: 0 0 10px; font-style:italic; }
-  .bodycopy { font-size:18px; line-height:1.55; opacity:.95; margin:0; }
-  footer { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:12px 16px; background:#0b0f14; border-top:1px solid #101826; }
-  .btn { font-size:14px; padding:10px 14px; border-radius:999px; background:#1a2332; color:#e6edf3; border:0; cursor:pointer; }
-  .status { font-size:12px; opacity:.7; }
-  a { color:#8ab4ff; text-decoration:none; } a:hover { text-decoration:underline; }
+  :root {
+    /* Dark theme */
+    --bg: #0b0f14;
+    --panel: #0f1620;
+    --panel-contrast: #121a26;
+    --text: #e6edf3;
+    --muted: #96a5b4;
+    --accent: #8ab4ff;
+    --shadow: 0 18px 60px rgba(0,0,0,.45);
+    --ticker-bg: #0f1620;
+    --divider: #101826;
+  }
+  .theme-sepia {
+    --bg: #19130c;
+    --panel: #231a12;
+    --panel-contrast: #2a2017;
+    --text: #efe7dc;
+    --muted: #d0c2af;
+    --accent: #ffd27a;
+    --shadow: 0 18px 60px rgba(0,0,0,.45);
+    --ticker-bg: #231a12;
+    --divider: #3a2e21;
+  }
 
-  /* Ticker: larger + slower */
-  .ticker { position:fixed; bottom:0; left:0; width:100%; background:#0f1620; border-top:1px solid #101826; white-space:nowrap; overflow:hidden; }
+  html, body { height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+  body { background: var(--bg); color: var(--text); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .wrap { display:flex; flex-direction:column; height:100%; }
+
+  header {
+    padding: 10px 16px;
+    background: var(--panel);
+    position: sticky; top: 0; z-index: 2;
+    border-bottom: 1px solid var(--divider);
+    display:flex; align-items:center; gap:12px;
+  }
+  .brand { font-size: 18px; letter-spacing:.04em; display:flex; gap:8px; align-items:center; }
+  .right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+  .ts { opacity:.75; font-size:14px; }
+  .clock { font-variant-numeric: tabular-nums; }
+  .health {
+    width:10px; height:10px; border-radius:50%;
+    box-shadow: 0 0 0 2px rgba(0,0,0,.25);
+  }
+  .health.ok    { background:#21d07a; }
+  .health.stale { background:#e0a800; }
+  .health.err   { background:#e5534b; }
+  .theme-btn { font-size:13px; padding:8px 10px; border-radius:999px; background: var(--panel-contrast); color: var(--text); border: 1px solid var(--divider); cursor: pointer; }
+
+  main { flex:1; display:flex; align-items:center; justify-content:center; padding:22px 16px 64px; }
+  .card {
+    width: 100%; max-width: 960px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-contrast) 100%);
+    box-shadow: var(--shadow);
+    padding: 26px 28px;
+  }
+  .kicker { font-size:13px; text-transform:uppercase; letter-spacing:.14em; opacity:.85; margin-bottom:10px; display:flex; align-items:center; gap:10px; }
+  .srcpill { display:inline-flex; align-items:center; gap:8px; background: rgba(255,255,255,.04); border:1px solid var(--divider); padding:6px 10px; border-radius:999px; }
+  .srcpill img { width:16px; height:16px; border-radius:3px; display:block; }
+  .title { font-size: 32px; line-height: 1.2; margin: 0 0 10px; }
+  .meta { font-size: 13px; opacity: .75; margin-bottom: 12px; }
+  .subhead { font-size: 19px; line-height: 1.45; opacity:.95; margin: 0 0 12px; font-style: italic; }
+  .bodycopy { font-size: 18px; line-height: 1.58; opacity:.98; margin:0; }
+
+  footer {
+    position: fixed; left:0; right:0; bottom: 24px;
+    display:flex; gap:10px; align-items:center; justify-content:center;
+    pointer-events:none; /* allow ticker interactions below */
+  }
+  .btn { pointer-events:auto; font-size:14px; padding:10px 14px; border-radius:999px; background: var(--panel); color: var(--text); border: 1px solid var(--divider); cursor: pointer; }
+  .btn:active { transform: translateY(1px); }
+  .status { pointer-events:auto; font-size:12px; opacity:.75; background: var(--panel); border: 1px solid var(--divider); border-radius: 999px; padding: 8px 10px; }
+
+  /* Ticker */
+  .ticker { position:fixed; bottom:0; left:0; width:100%; background: var(--ticker-bg); border-top:1px solid var(--divider); white-space:nowrap; overflow:hidden; }
   .ticker-inner { display:inline-block; padding:12px 0; animation:scrollLeft 240s linear infinite; }
+  .ticker.paused .ticker-inner { animation-play-state: paused; }
   .tick { display:inline-block; padding:0 36px; font-size:18px; opacity:.95; }
   @keyframes scrollLeft { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-  @media (max-width:480px){ .title{font-size:22px} .subhead,.bodycopy{font-size:16px} }
+  /* Responsive tweaks */
+  @media (max-width: 480px) {
+    .title{font-size:24px} .subhead,.bodycopy{font-size:16px}
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div><strong>Enterprise • Data Center • AI</strong> — Rolling News Display</div>
-    <div class="ts" id="ts">Loading…</div>
+    <div class="brand">
+      <strong>Enterprise • Data Center • AI</strong> — Rolling News Display
+    </div>
+    <div class="right">
+      <div class="health ok" id="health" title="Status"></div>
+      <div class="ts"><span class="clock" id="clock">--:--:--</span> • <span id="ts">Booting…</span></div>
+      <button class="theme-btn" id="themeBtn" aria-label="Toggle theme">Theme: Dark</button>
+    </div>
   </header>
+
   <main>
     <article class="card" id="card" aria-live="polite">
-      <div class="kicker" id="kicker">Just a sec…</div>
+      <div class="kicker">
+        <span class="srcpill" id="srcpill">
+          <img id="favicon" alt="" src="">
+          <span id="sourceText">source</span>
+        </span>
+      </div>
       <h1 class="title" id="title">Loading…</h1>
       <div class="meta" id="meta"></div>
       <p class="subhead" id="subhead"></p>
       <p class="bodycopy" id="body"></p>
     </article>
   </main>
+
   <footer>
-    <div>
-      <button class="btn" id="prevBtn">◀ Prev</button>
-      <button class="btn" id="pauseBtn">⏸ Pause</button>
-      <button class="btn" id="nextBtn">Next ▶</button>
-    </div>
+    <button class="btn" id="prevBtn">◀ Prev</button>
+    <button class="btn" id="pauseBtn">⏸ Pause</button>
+    <button class="btn" id="nextBtn">Next ▶</button>
     <div class="status" id="status">—</div>
   </footer>
-  <div class="ticker" aria-hidden="true"><div class="ticker-inner" id="ticker"></div></div>
+
+  <div class="ticker" id="ticker" aria-live="polite" aria-label="Top headlines ticker">
+    <div class="ticker-inner" id="tickerInner"></div>
+  </div>
 </div>
 
 <script>
 (function(){
-  /* ===== Version (visible in header & footer) ===== */
-  var APP_VERSION = 'v1.7-sub30-body150';
+  /* ===== Version ===== */
+  var APP_VERSION = 'v1.8-polish';
 
   /* ===== Config (GitHub Pages) ===== */
   var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json?v=' + APP_VERSION;
   var REFRESH_MS = 10 * 60 * 1000;   // re-download JSON every 10 min
   var ROTATE_MS  = 15 * 1000;        // 15s per card
-  var MAX_ITEMS  = 120;
+  var MAX_ITEMS  = 140;
 
   // Ticker controls
   var TICKER_MAX = 6;        // up to 6 headlines
   var TICKER_HOURS = 24;     // last 24 hours
   var TICKER_SECONDS = 240;  // slow scroll (also set in CSS)
 
-  /* ===== Helpers (ES5-safe) ===== */
-  function $(id){ return document.getElementById(id); }
+  // Health thresholds (minutes)
+  var STALE_MIN = 20;
 
-  // Strip tags, decode entities, and REMOVE bullet/number markers entirely.
+  /* ===== State ===== */
+  var items=[], idx=0, paused=false, timer=null;
+  var lastFetchOK = true, lastFetchAt = 0;
+
+  /* ===== Helpers ===== */
+  function $(id){ return document.getElementById(id); }
+  function setStatus(s){ var el=$('status'); if(el) el.textContent = s + ' • ' + APP_VERSION; }
+  function setHeaderStatus(){
+    var ts = $('ts');
+    var h = $('health');
+    if (!ts || !h) return;
+    if (!lastFetchAt) { ts.textContent = 'Booting…'; h.className='health stale'; h.title='Booting'; return; }
+    var ageMin = Math.floor((Date.now()-lastFetchAt)/60000);
+    ts.textContent = 'Stories: '+items.length+' • Updated: '+new Date(lastFetchAt).toLocaleTimeString('en-GB')+' • '+APP_VERSION;
+    if (!lastFetchOK) { h.className='health err'; h.title='Fetch error'; }
+    else if (ageMin > STALE_MIN) { h.className='health stale'; h.title='Stale ('+ageMin+'m)'; }
+    else { h.className='health ok'; h.title='Fresh ('+ageMin+'m)'; }
+  }
+
+  // Strip tags & bullets; decode entities
   function htmlToTextNoBullets(s){
     if (!s) return '';
-    var div = document.createElement('div');
-    div.innerHTML = String(s);
+    var div = document.createElement('div'); div.innerHTML = String(s);
     var txt = (div.textContent || div.innerText || '') || '';
     txt = txt.replace(/<[^>]*>/g,' ');
     txt = txt.replace(/\r?\n+/g, '\n');
@@ -93,76 +188,65 @@
     txt = txt.replace(/[ \t]+/g,' ').replace(/\s*\n\s*/g, ' ').trim();
     return txt;
   }
-
   function clampWords(s, n){
     var t = htmlToTextNoBullets(s);
     var w = t.split(/\s+/);
     var out = w.slice(0, n).join(' ');
     return out + (w.length > n ? '…' : '');
   }
-
   function wordCount(s){ return htmlToTextNoBullets(s).split(/\s+/).filter(Boolean).length; }
 
   function parseDate(x){ var d=new Date(x); return isNaN(d.getTime())? new Date() : d; }
   function withinHours(d,h){ return (Date.now()-d.getTime()) <= h*3600*1000; }
   function host(u){ try{ return new URL(u).host.replace(/^www\./,''); }catch(e){ return ''; } }
-  function uniqueByLinkTitle(a){ var seen={},out=[]; for(var i=0;i<a.length;i++){ var k=((a[i].link||'')+'|'+(a[i].title||'')).toLowerCase(); if(!seen[k]){ seen[k]=1; out.push(a[i]); } } return out; }
-  function byDateDesc(a,b){ return b.published - a.published; }
-  function escapeHTML(s){ return String(s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+  function escapeHTML(s){ return String(s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;","&gt;":">","\"":"&quot;"}[c];}); }
 
-  // Similarity helpers
+  // Fuzzy similarity for de-dupe
   function norm(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim(); }
-  function overlapRatio(a,b){
-    var wa=norm(a).split(' '), wb=norm(b).split(' '), set={}, inter=0, i;
-    for(i=0;i<wa.length;i++) set[wa[i]]=1;
-    for(i=0;i<wb.length;i++) if(set[wb[i]]) inter++;
-    var denom=Math.max(wa.length, wb.length) || 1;
-    return inter/denom;
+  function tokenSet(s){ var o={}, a=norm(s).split(' '), i; for(i=0;i<a.length;i++){ if(a[i]) o[a[i]]=1; } return o; }
+  function jaccard(a,b){
+    var A=tokenSet(a), B=tokenSet(b), inter=0, uni=0, k;
+    for(k in A){ if(A.hasOwnProperty(k)){ uni++; if(B[k]) inter++; } }
+    for(k in B){ if(B.hasOwnProperty(k) && !A[k]) uni++; }
+    return uni ? inter/uni : 0;
   }
-  function tooSimilar(a,b){ return overlapRatio(a,b) > 0.75 || norm(b).indexOf(norm(a))!==-1 || norm(a).indexOf(norm(b))!==-1; }
+  function shortHash(s){ // 12-char content hash for coarse dupes
+    var t = norm(s), i, h=0; for(i=0;i<t.length;i++){ h=((h<<5)-h)+t.charCodeAt(i); h|=0; }
+    return (h>>>0).toString(36).slice(0,12);
+  }
 
-  // Build sub-head (≤30 words) and body (≤150 words) from raw summary/content
+  // Build sub-head (≤30 words) and body (≤150 words)
   function buildSubAndBody(title, raw){
     var txt = htmlToTextNoBullets(raw || title || '');
-
-    // Split into sentences; tolerate weak punctuation
     var sentences = txt.split(/(?<=[.!?])\s+/);
     if (sentences.length < 2) sentences = txt.split(/[;,:]\s+/);
 
     var sub = '', bodyText = '';
-
-    // Pick sub-head: first sentence not too similar to the title
     for (var i=0;i<sentences.length;i++){
       var s = sentences[i].trim();
       if (s.length < 15) continue;
-      if (tooSimilar(s, title)) continue;
-      sub = clampWords(s, 30); // ≤30 words
+      if (jaccard(s, title) > 0.7) continue;
+      sub = clampWords(s, 30);
       break;
     }
-
-    // Body: the rest, skipping near-duplicates of title/sub-head
     var acc = [];
     for (var j=0;j<sentences.length;j++){
       var t = sentences[j].trim();
       if (t.length < 15) continue;
-      if (tooSimilar(t, title)) continue;
-      if (sub && tooSimilar(t, sub)) continue;
+      if (jaccard(t, title) > 0.7) continue;
+      if (sub && jaccard(t, sub) > 0.7) continue;
       acc.push(t);
-      if (acc.join(' ').split(/\s+/).length >= 180) break; // collect a bit more; clamp later
+      if (acc.join(' ').split(/\s+/).length >= 180) break;
     }
-    bodyText = clampWords(acc.join(' '), 150); // ≤150 words
-
-    // If body still too short (some feeds are extremely terse), backfill from the full cleaned text
+    bodyText = clampWords(acc.join(' '), 150);
     if (wordCount(bodyText) < 60) {
       var fallback = txt;
-      if (sub) fallback = fallback.replace(sub, ''); // avoid repeating
+      if (sub) fallback = fallback.replace(sub, '');
       bodyText = clampWords((acc.join(' ') + ' ' + fallback), 150);
     }
-
-    // If no sub-head, derive from the start of body
     if (!sub) {
       sub = clampWords(bodyText, 30);
-      if (tooSimilar(sub, bodyText)) bodyText = clampWords(txt, 150);
+      if (jaccard(sub, bodyText) > 0.8) bodyText = clampWords(txt, 150);
     }
     return { subhead: sub, body: bodyText };
   }
@@ -176,7 +260,7 @@
         var it=rss[i];
         var title = getText(it,'title');
         var link  = getText(it,'link');
-        var desc  = getRaw(it,'description');    // raw; we clean later
+        var desc  = getRaw(it,'description');
         var date  = getText(it,'pubDate');
         var src   = host(link) || host(sourceUrl);
         out.push({ title:title, link:link, raw:desc || title, published:parseDate(date), source:src });
@@ -211,6 +295,34 @@
     }
   }
 
+  // Smart de-dupe across sources
+  function dedupeSmart(arr){
+    var out=[], seenTitles=[], seenHashes={}, i, it, t, h;
+    for(i=0;i<arr.length;i++){
+      it = arr[i];
+      t = it.title || '';
+      h = shortHash((it.raw||'').slice(0,600)); // small content hash
+      // exact link/title hash guard
+      var key = ((it.link||'')+'|'+t).toLowerCase();
+      if (seenHashes[key]) continue;
+      // near-dup by title similarity vs items already kept
+      var dupe = false;
+      for (var j=0;j<seenTitles.length;j++){
+        var other = seenTitles[j];
+        if (jaccard(t, other) > 0.85) { dupe = true; break; }
+      }
+      if (dupe) continue;
+      // content hash collision check
+      if (h && seenHashes[h]) continue;
+
+      out.push(it);
+      seenTitles.push(t);
+      seenHashes[key] = 1;
+      if (h) seenHashes[h] = 1;
+    }
+    return out;
+  }
+
   // Build final display item
   function buildItem(raw){
     var pieces = buildSubAndBody(raw.title, raw.raw);
@@ -224,10 +336,11 @@
     };
   }
 
-  // XHR helper
+  // XHR helper with timeout
   function xhrJSON(url, cb){
     var x=new XMLHttpRequest();
     x.open('GET', url, true);
+    x.timeout = 15000;
     x.onreadystatechange=function(){
       if(x.readyState===4){
         try{
@@ -236,18 +349,44 @@
         } catch(e){ cb(e); }
       }
     };
+    x.ontimeout = function(){ cb(new Error('Timeout')); };
     x.send();
   }
 
-  function setStatus(m){
-    var s=$('status'); if(s) s.textContent = m + ' • ' + APP_VERSION;
+  // Cache helpers (offline boot)
+  var CACHE_KEY = 'tnd_feeds_cache_v1';
+  var CACHE_IDX = 'tnd_last_idx_v1';
+  function saveCache(obj){
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ when: Date.now(), data: obj })); } catch(e){}
   }
+  function loadCache(){
+    try { var s=localStorage.getItem(CACHE_KEY); if(!s) return null; return JSON.parse(s); } catch(e){ return null; }
+  }
+  function saveIdx(i){ try{ localStorage.setItem(CACHE_IDX, String(i)); }catch(e){} }
+  function loadIdx(){ var s=localStorage.getItem(CACHE_IDX); return s? (parseInt(s,10)||0) : 0; }
 
-  // Ticker (≤6 headlines, last 24h, slow scroll)
+  // Theme toggle
+  var THEME_KEY='tnd_theme';
+  function applyTheme(theme){
+    document.body.classList.toggle('theme-sepia', theme==='sepia');
+    $('themeBtn').textContent = 'Theme: ' + (theme==='sepia'?'Sepia':'Dark');
+    try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
+  }
+  $('themeBtn').onclick=function(){
+    var cur = (localStorage.getItem(THEME_KEY)||'dark');
+    applyTheme(cur==='dark' ? 'sepia' : 'dark');
+  };
+  applyTheme(localStorage.getItem(THEME_KEY)||'dark');
+
+  // Clock
+  function tickClock(){ $('clock').textContent = new Date().toLocaleTimeString('en-GB'); }
+  setInterval(tickClock, 1000); tickClock();
+
+  // Ticker (≤6 headlines, last 24h, pause on hover/tap)
   function updateTicker(list){
-    var t=$('ticker'); if(!t) return;
-    var recent=[], i, j, k;
+    var t=$('ticker'), inner=$('tickerInner'); if(!t||!inner) return;
 
+    var recent=[], i, j, k;
     for (i=0;i<list.length;i++){
       if (withinHours(list[i].published, TICKER_HOURS)) recent.push(list[i]);
       if (recent.length >= TICKER_MAX) break;
@@ -261,53 +400,94 @@
         if(!dupe) recent.push(list[j]);
       }
     }
-
-    var texts=[];
+    var html=[];
     for(i=0;i<recent.length;i++){
-      texts.push('<span class="tick">'+escapeHTML(recent[i].source)+' · '+escapeHTML(recent[i].title)+'</span>');
+      html.push('<span class="tick">'+escapeHTML(recent[i].source)+' · '+escapeHTML(recent[i].title)+'</span>');
     }
-    t.innerHTML = '<div class="ticker-inner" id="tickerInner">' + texts.join('') + texts.join('') + '</div>';
-    var inner=$('tickerInner'); if(inner) inner.style.animationDuration = TICKER_SECONDS + 's';
+    inner.innerHTML = html.join('') + html.join('');
+    inner.style.animationDuration = TICKER_SECONDS + 's';
+
+    function togglePause(){ t.classList.toggle('paused'); }
+    t.onmouseenter = togglePause; t.onmouseleave = togglePause;
+    t.onclick = togglePause;
   }
 
-  /* ===== App state / UI ===== */
-  var items=[], idx=0, paused=false, timer=null;
+  // Render card
+  function setFavicon(hostname){
+    var ico = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent('https://' + hostname);
+    var img = $('favicon'), st = $('sourceText');
+    if (img) img.src = ico;
+    if (st) st.textContent = hostname || 'source';
+  }
 
   function render(){
     if(!items.length) return;
     var it=items[idx%items.length];
-    $('kicker').textContent = it.source || '';
+    setFavicon(it.source || '');
     $('title').innerHTML = '<a href="'+it.link+'" target="_blank" rel="noopener">'+escapeHTML(it.title)+'</a>';
     $('meta').textContent = it.published.toLocaleString('en-GB');
     $('subhead').textContent = it.subhead || '';
     $('body').textContent = it.body || '';
 
-    // Header status shows version prominently
-    var ts=$('ts');
-    if (ts) ts.textContent = 'Stories: '+items.length+' • Updated: '+(new Date()).toLocaleTimeString('en-GB')+' • '+APP_VERSION;
+    // persist last index for offline boot continuity
+    saveIdx(idx);
+
+    setHeaderStatus();
   }
   function next(){ idx=(idx+1)%items.length; render(); }
   function prev(){ idx=(idx-1+items.length)%items.length; render(); }
   function startRotate(){ if(timer) clearInterval(timer); timer=setInterval(function(){ if(!paused&&items.length) next(); }, ROTATE_MS); }
 
-  /* ===== Refresh pipeline ===== */
+  // Refresh pipeline with offline cache fallback
+  function useData(data){
+    try{
+      var merged=[], results=(data&&data.results)||[], r, i;
+      for(i=0;i<results.length;i++){
+        r=results[i]; if(!r.ok) continue;
+        merged = merged.concat(parseFeedXML(r.text, r.url));
+      }
+      merged = dedupeSmart(merged)
+               .sort(function(a,b){ return b.published - a.published; })
+               .slice(0, MAX_ITEMS);
+
+      var built=[], ii;
+      for(ii=0; ii<merged.length; ii++){ built.push(buildItem(merged[ii])); }
+
+      items = built;
+      // restore last index if possible
+      var li = loadIdx(); if (li && li < items.length) idx = li; else idx = 0;
+
+      // update UI
+      render(); updateTicker(items);
+
+      // cache raw feed JSON for offline
+      saveCache(data);
+
+      lastFetchOK = true; lastFetchAt = Date.now();
+      setStatus('Updated '+items.length+' items');
+    }catch(e){
+      setStatus('Parse error: '+e);
+      lastFetchOK = false; setHeaderStatus();
+    }
+  }
+
   function refresh(){
     setStatus('Refreshing…');
     xhrJSON(FEEDS_URL + '&t=' + Date.now(), function(err, data){
-      if(err){ return setStatus('Feed error: '+err); }
-      try{
-        var merged=[], results=(data&&data.results)||[], r, i;
-        for(i=0;i<results.length;i++){
-          r=results[i]; if(!r.ok) continue;
-          merged = merged.concat(parseFeedXML(r.text, r.url));
+      if(err || !data){
+        // Try offline cache
+        var cache = loadCache();
+        lastFetchOK = false;
+        if (cache && cache.data){
+          useData(cache.data);
+          setStatus('Offline • using cached feeds');
+        } else {
+          setStatus('Fetch error and no cache');
         }
-        merged = uniqueByLinkTitle(merged).sort(byDateDesc).slice(0, MAX_ITEMS);
-
-        var built=[], ii;
-        for(ii=0; ii<merged.length; ii++){ built.push(buildItem(merged[ii])); }
-        items=built; idx=0; render(); updateTicker(items);
-        setStatus('Updated '+items.length+' items');
-      }catch(e){ setStatus('Parse error: '+e); }
+        setHeaderStatus();
+        return;
+      }
+      useData(data);
     });
   }
 
@@ -318,6 +498,9 @@
 
   // Init
   refresh(); startRotate(); setInterval(refresh, REFRESH_MS);
+  // If we have cache, render something immediately to avoid blank screen on boot
+  var cached = loadCache(); if (cached && cached.data){ try{ useData(cached.data); }catch(_e){} }
+
 })();
 </script>
 </body>
