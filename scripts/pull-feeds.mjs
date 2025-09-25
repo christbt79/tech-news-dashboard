@@ -7,12 +7,18 @@ const FEEDS = [
   // Enterprise / Tech
   'https://techcrunch.com/category/enterprise/feed/',
   'https://www.theregister.com/headlines.atom',
+  'https://www.tomshardware.com/feeds.xml',
+  'https://www.nextplatform.com/feed/',
+  'https://siliconangle.com/feed/',
   // Data center
   'https://www.datacenterdynamics.com/en/rss/',
   'https://www.datacenterknowledge.com/rss.xml',
   // AI
   'https://venturebeat.com/category/ai/feed/',
-  'https://www.theverge.com/ai-artificial-intelligence/rss/index.xml'
+  'https://www.theverge.com/ai-artificial-intelligence/rss/index.xml',
+  'https://www.artificialintelligence-news.com/feed/',
+  'https://syncedreview.com/feed/',
+  'https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml',
 ];
 
 async function fetchText(u){
