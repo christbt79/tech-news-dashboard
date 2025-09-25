@@ -1,0 +1,8 @@
+{
+  "name": "rolling-news",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pull": "node scripts/pull-feeds.mjs"
+  }
+}
