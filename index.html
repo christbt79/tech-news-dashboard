@@ -56,110 +56,58 @@
 </div>
 
 <script>
-(function(){
-  // ---- Config ----
-  var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json';
-  var REFRESH_MS = 10 * 60 * 1000;   // re-download JSON every 10 min
-  var ROTATE_MS  = 15 * 1000;        // 15s per card
-  var MAX_ITEMS  = 120;
-  var MAX_SUM_WORDS = 50;            // ~50-word summary
-  var BULLET_MIN = 3, BULLET_MAX = 4;
-  var HOURS_WINDOW = 48;             // only last 48h
-  var KEYWORDS = [                   // keep focus on enterprise/DC/AI
-    'AI','artificial intelligence','GPU','NVIDIA','H100','H200','B200','Blackwell',
-    'LLM','GenAI','compute','data center','datacenter','liquid cooling','rack','DCI',
-    'AWS','Azure','Google Cloud','GCP','OCI','HPE','Dell','Lenovo','Supermicro'
-  ];
+/* ... keep your existing helpers ... */
 
-  // ---- Helpers (ES5) ----
-  function $(id){ return document.getElementById(id); }
-  function textOnly(s){ return (s||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); }
-  function words(n){ return function(str){ var w=textOnly(str).split(/\s+/); return w.slice(0,n).join(' ') + (w.length>n?'…':''); }; }
-  function clamp50(s){ return words(MAX_SUM_WORDS)(s); }
-  function parseDate(x){ var d=new Date(x); return isNaN(d.getTime())? new Date(): d; }
-  function withinHours(d, h){ return (Date.now()-d.getTime()) <= h*3600*1000; }
-  function host(u){ try{ return new URL(u).host.replace(/^www\./,''); }catch(e){ return ''; } }
-  function uniqueByLinkTitle(a){ var seen={},out=[]; for(var i=0;i<a.length;i++){ var k=((a[i].link||'')+'|'+(a[i].title||'')).toLowerCase(); if(!seen[k]){ seen[k]=1; out.push(a[i]); } } return out; }
-  function byDateDesc(a,b){ return b.published - a.published; }
-  function makeBullets(text){
-    var s=textOnly(text); var sentences=s.split(/(?<=[.!?])\s+/); var out=[];
-    for(var i=0;i<sentences.length&&out.length<BULLET_MAX;i++){ var seg=sentences[i].trim(); if(seg.length>18) out.push(seg); }
-    while(out.length<BULLET_MIN && s.length>0){ out.push(clamp50(s)); }
-    return out.slice(0,BULLET_MAX);
-  }
-  function passesKeywords(t){
-    if(!KEYWORDS.length) return true;
-    var hay=(t||'').toLowerCase();
-    for(var i=0;i<KEYWORDS.length;i++){ if(hay.indexOf(KEYWORDS[i].toLowerCase())!==-1) return true; }
-    return false;
-  }
+// Add these light-weight helpers (ES5-safe)
+function norm(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim(); }
+function overlapRatio(a,b){
+  var wa = norm(a).split(' '), wb = norm(b).split(' ');
+  var set = {}, inter = 0, i;
+  for(i=0;i<wa.length;i++) set[wa[i]] = 1;
+  for(i=0;i<wb.length;i++) if(set[wb[i]]) inter++;
+  var denom = Math.max(wa.length, wb.length) || 1;
+  return inter / denom; // 0..1
+}
 
-  // ---- Parse RSS/Atom XML strings inside feeds.json ----
-  function parseFeedXML(xmlText, sourceUrl){
-    var parser=new DOMParser(); var doc=parser.parseFromString(xmlText,'application/xml'); var out=[];
-    var items=doc.getElementsByTagName('item');
-    if(items&&items.length){
-      for(var i=0;i<items.length;i++){
-        var it=items[i];
-        var title=txt(it,'title'); var link=txt(it,'link'); var desc=txt(it,'description'); var date=txt(it,'pubDate');
-        out.push({title:title, link:link, summary:desc||title, published:parseDate(date), source:host(link)||host(sourceUrl)});
-      }
-      return out;
+function bulletsFrom(title, text){
+  var s = (text || title || '');
+  // Prefer real sentences
+  var parts = textOnly(s).split(/(?<=[.!?])\s+/);
+  if (parts.length < 2) {
+    // fallback: break on commas/semicolons if needed
+    parts = textOnly(s).split(/[;,]\s+/);
+  }
+  // clean + filter
+  var cleaned = [];
+  for (var i=0;i<parts.length;i++){
+    var seg = parts[i].trim();
+    if (seg.length < 20) continue;                  // too short
+    if (overlapRatio(seg, title) > 0.8) continue;   // too close to the headline
+    // de-dup by similarity to items we already kept
+    var tooClose = false;
+    for (var j=0;j<cleaned.length;j++){
+      if (overlapRatio(seg, cleaned[j]) > 0.8) { tooClose = true; break; }
     }
-    var entries=doc.getElementsByTagName('entry');
-    for(var j=0;j<entries.length;j++){
-      var en=entries[j];
-      var titleA=txt(en,'title'); var linkEl=en.getElementsByTagName('link')[0];
-      var href=(linkEl&&(linkEl.getAttribute('href')||linkEl.textContent))||'';
-      var sumA=txt(en,'summary')||txt(en,'content'); var dateA=txt(en,'updated')||txt(en,'published');
-      out.push({title:titleA, link:href, summary:sumA||titleA, published:parseDate(dateA), source:host(href)||host(sourceUrl)});
-    }
-    return out;
-    function txt(p,tag){ var el=p.getElementsByTagName(tag)[0]; return el? (el.textContent||el.innerText||'').trim():''; }
+    if (!tooClose) cleaned.push(seg);
+    if (cleaned.length >= 4) break;
   }
-
-  function buildItem(raw){
-    var sum = clamp50(raw.summary||raw.title);
-    var bullets = makeBullets(sum);
-    return { title: raw.title, link: raw.link, source: raw.source, summary: sum, bullets: bullets, published: raw.published };
+  // Ensure 3–4 bullets; backfill with trimmed slices if needed
+  while (cleaned.length < 3 && s.length > 0) {
+    var w = textOnly(s).split(/\s+/);
+    var slice = w.slice(0, Math.min(14, w.length)).join(' ');
+    if (slice.length >= 20) cleaned.push(slice + (w.length>14?'…':''));
+    else break;
   }
+  return cleaned.slice(0, 4);
+}
 
-  // ---- Fetch/refresh ----
-  function xhrJSON(url, cb){ var r=new XMLHttpRequest(); r.open('GET', url, true); r.onreadystatechange=function(){ if(r.readyState===4){ try{ if(r.status>=200 && r.status<300){ cb(null, JSON.parse(r.responseText)); } else { cb(new Error('HTTP '+r.status)); } } catch(e){ cb(e); } } }; r.send(); }
-  function refresh(){
-    setStatus('Refreshing…');
-    xhrJSON(FEEDS_URL+'?t='+(Date.now()), function(err, data){
-      if(err){ return setStatus('Fetch error: '+err); }
-      try{
-        var merged=[], results=(data&&data.results)||[];
-        for(var i=0;i<results.length;i++){
-          var r=results[i]; if(!r.ok) continue;
-          merged = merged.concat(parseFeedXML(r.text, r.url));
-        }
-        merged = merged.filter(function(x){ return withinHours(x.published, HOURS_WINDOW) && passesKeywords(x.title+' '+x.summary); });
-        merged = uniqueByLinkTitle(merged).sort(byDateDesc).slice(0, MAX_ITEMS).map(buildItem);
-        items=merged; idx=0; render(); updateTicker(items);
-        setStatus('Updated '+items.length+' items');
-      }catch(e){ setStatus('Parse error: '+e); }
-    });
-  }
-
-  // ---- UI glue ----
-  var items=[], idx=0, paused=false, timer=null;
-  function setStatus(m){ var el=$('status'); if(el) el.textContent=m; }
-  function escapeHTML(s){ return String(s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
-  function updateTicker(list){ var t=$('ticker'); if(!t) return; var texts=[]; for(var i=0;i<list.length&&i<30;i++){ texts.push('<span class="tick">'+escapeHTML(list[i].source)+' · '+escapeHTML(list[i].title)+'</span>'); } var joined=texts.join(''); t.innerHTML='<div>'+joined+joined+'</div>'; }
-  function render(){ if(!items.length) return; var it=items[idx%items.length]; $('kicker').textContent=it.source||''; $('title').innerHTML='<a href="'+it.link+'" target="_blank" rel="noopener">'+escapeHTML(it.title)+'</a>'; $('meta').textContent=it.published.toLocaleString('en-GB'); $('summary').textContent=it.summary; var bl=$('bullets'); bl.innerHTML=''; for(var i=0;i<it.bullets.length;i++){ var li=document.createElement('li'); li.textContent=it.bullets[i]; bl.appendChild(li);} $('ts').textContent='Stories: '+items.length+' • Updated: '+(new Date()).toLocaleTimeString('en-GB'); }
-  function next(){ idx=(idx+1)%items.length; render(); }
-  function prev(){ idx=(idx-1+items.length)%items.length; render(); }
-  function startRotate(){ if(timer) clearInterval(timer); timer=setInterval(function(){ if(!paused&&items.length) next(); }, ROTATE_MS); }
-
-  document.getElementById('nextBtn').onclick=function(){ paused=true; document.getElementById('pauseBtn').textContent='▶ Resume'; next(); };
-  document.getElementById('prevBtn').onclick=function(){ paused=true; document.getElementById('pauseBtn').textContent='▶ Resume'; prev(); };
-  document.getElementById('pauseBtn').onclick=function(){ paused=!paused; this.textContent=paused?'▶ Resume':'⏸ Pause'; };
-
-  refresh(); startRotate(); setInterval(refresh, REFRESH_MS);
-})();
+// If you have a buildItem() that creates the final object, make sure it calls bulletsFrom(title, summary):
+function buildItem(raw){
+  var title = raw.title;
+  var sum = clamp50(raw.summary || raw.title);
+  var bullets = bulletsFrom(title, sum);
+  return { title: title, link: raw.link, source: raw.source, summary: sum, bullets: bullets, published: raw.published };
+}
 </script>
 </body>
 </html>
