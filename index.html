@@ -18,8 +18,8 @@
   .kicker { font-size:14px; text-transform:uppercase; letter-spacing:.14em; opacity:.7; margin-bottom:8px; }
   .title { font-size:28px; line-height:1.2; margin:0 0 8px; }
   .meta { font-size:13px; opacity:.7; margin-bottom:12px; }
-  .subhead { font-size:18px; line-height:1.4; opacity:.9; margin: 0 0 10px; font-style:italic; white-space:pre-wrap; }
-  .bodycopy { font-size:18px; line-height:1.55; opacity:.95; margin:0; white-space:pre-wrap; }
+  .subhead { font-size:18px; line-height:1.4; opacity:.9; margin: 0 0 10px; font-style:italic; }
+  .bodycopy { font-size:18px; line-height:1.55; opacity:.95; margin:0; }
   footer { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:12px 16px; background:#0b0f14; border-top:1px solid #101826; }
   .btn { font-size:14px; padding:10px 14px; border-radius:999px; background:#1a2332; color:#e6edf3; border:0; cursor:pointer; }
   .status { font-size:12px; opacity:.7; }
@@ -62,8 +62,8 @@
 
 <script>
 (function(){
-  /* ===== Version (helps confirm cache) ===== */
-  var APP_VERSION = 'v1.6-no-bullets-hardened';
+  /* ===== Version (visible in header & footer) ===== */
+  var APP_VERSION = 'v1.7-sub30-body150';
 
   /* ===== Config (GitHub Pages) ===== */
   var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json?v=' + APP_VERSION;
@@ -85,21 +85,11 @@
     var div = document.createElement('div');
     div.innerHTML = String(s);
     var txt = (div.textContent || div.innerText || '') || '';
-    // Remove lingering tags just in case
     txt = txt.replace(/<[^>]*>/g,' ');
-
-    // Normalize newlines
     txt = txt.replace(/\r?\n+/g, '\n');
-
-    // Remove common bullet/number markers at the start of lines:
-    // •, ·, ●, ■, -, *, en/em dashes, "1.", "1)", "(a)", "• –" combos, etc.
     var bulletStart = /^(?:\s*[\u2022\u2219\u25CF\u25A0\u25AA\u00B7\-\*\u2013\u2014]+|\s*(?:\(?[0-9a-zA-Z]\)?[.)]))\s+/gm;
     txt = txt.replace(bulletStart, '');
-
-    // Also remove inline bullets that some feeds stick in-between sentences
     txt = txt.replace(/[\u2022\u00B7\u25CF\u25A0]+/g, ' ');
-
-    // Collapse whitespace
     txt = txt.replace(/[ \t]+/g,' ').replace(/\s*\n\s*/g, ' ').trim();
     return txt;
   }
@@ -111,6 +101,8 @@
     return out + (w.length > n ? '…' : '');
   }
 
+  function wordCount(s){ return htmlToTextNoBullets(s).split(/\s+/).filter(Boolean).length; }
+
   function parseDate(x){ var d=new Date(x); return isNaN(d.getTime())? new Date() : d; }
   function withinHours(d,h){ return (Date.now()-d.getTime()) <= h*3600*1000; }
   function host(u){ try{ return new URL(u).host.replace(/^www\./,''); }catch(e){ return ''; } }
@@ -118,7 +110,7 @@
   function byDateDesc(a,b){ return b.published - a.published; }
   function escapeHTML(s){ return String(s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
 
-  // Similarity helpers to avoid repeating headline in subhead/body
+  // Similarity helpers
   function norm(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim(); }
   function overlapRatio(a,b){
     var wa=norm(a).split(' '), wb=norm(b).split(' '), set={}, inter=0, i;
@@ -129,7 +121,7 @@
   }
   function tooSimilar(a,b){ return overlapRatio(a,b) > 0.75 || norm(b).indexOf(norm(a))!==-1 || norm(a).indexOf(norm(b))!==-1; }
 
-  // Build sub-head (<=30 words) and body (<=80 words) from raw summary/content
+  // Build sub-head (≤30 words) and body (≤150 words) from raw summary/content
   function buildSubAndBody(title, raw){
     var txt = htmlToTextNoBullets(raw || title || '');
 
@@ -144,7 +136,7 @@
       var s = sentences[i].trim();
       if (s.length < 15) continue;
       if (tooSimilar(s, title)) continue;
-      sub = clampWords(s, 30); // <=30 words
+      sub = clampWords(s, 30); // ≤30 words
       break;
     }
 
@@ -156,14 +148,21 @@
       if (tooSimilar(t, title)) continue;
       if (sub && tooSimilar(t, sub)) continue;
       acc.push(t);
-      if (acc.join(' ').split(/\s+/).length >= 90) break;
+      if (acc.join(' ').split(/\s+/).length >= 180) break; // collect a bit more; clamp later
     }
-    bodyText = clampWords(acc.join(' '), 80); // <=80 words
+    bodyText = clampWords(acc.join(' '), 150); // ≤150 words
 
-    // If no sub-head, derive from start of body
+    // If body still too short (some feeds are extremely terse), backfill from the full cleaned text
+    if (wordCount(bodyText) < 60) {
+      var fallback = txt;
+      if (sub) fallback = fallback.replace(sub, ''); // avoid repeating
+      bodyText = clampWords((acc.join(' ') + ' ' + fallback), 150);
+    }
+
+    // If no sub-head, derive from the start of body
     if (!sub) {
       sub = clampWords(bodyText, 30);
-      if (tooSimilar(sub, bodyText)) bodyText = '';
+      if (tooSimilar(sub, bodyText)) bodyText = clampWords(txt, 150);
     }
     return { subhead: sub, body: bodyText };
   }
@@ -240,7 +239,9 @@
     x.send();
   }
 
-  function setStatus(m){ var el=$('status'); if(el) el.textContent=m + ' • ' + APP_VERSION; }
+  function setStatus(m){
+    var s=$('status'); if(s) s.textContent = m + ' • ' + APP_VERSION;
+  }
 
   // Ticker (≤6 headlines, last 24h, slow scroll)
   function updateTicker(list){
@@ -280,7 +281,10 @@
     $('meta').textContent = it.published.toLocaleString('en-GB');
     $('subhead').textContent = it.subhead || '';
     $('body').textContent = it.body || '';
-    $('ts').textContent = 'Stories: '+items.length+' • Updated: '+(new Date()).toLocaleTimeString('en-GB');
+
+    // Header status shows version prominently
+    var ts=$('ts');
+    if (ts) ts.textContent = 'Stories: '+items.length+' • Updated: '+(new Date()).toLocaleTimeString('en-GB')+' • '+APP_VERSION;
   }
   function next(){ idx=(idx+1)%items.length; render(); }
   function prev(){ idx=(idx-1+items.length)%items.length; render(); }
@@ -290,7 +294,7 @@
   function refresh(){
     setStatus('Refreshing…');
     xhrJSON(FEEDS_URL + '&t=' + Date.now(), function(err, data){
-      if(err){ return setStatus('Fetch error: '+err); }
+      if(err){ return setStatus('Feed error: '+err); }
       try{
         var merged=[], results=(data&&data.results)||[], r, i;
         for(i=0;i<results.length;i++){
