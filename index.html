@@ -22,10 +22,10 @@
   .btn { font-size:14px; padding:10px 14px; border-radius:999px; background:#1a2332; color:#e6edf3; border:0; cursor:pointer; }
   .status { font-size:12px; opacity:.7; }
   a { color:#8ab4ff; text-decoration:none; } a:hover { text-decoration:underline; }
-  .ticker { position:fixed; bottom:0; left:0; width:100%; background:#0f1620; border-top:1px solid #101826; white-space:nowrap; overflow:hidden; }
-  .ticker-inner { display:inline-block; padding:8px 0; animation:scrollLeft 60s linear infinite; }
-  .tick { display:inline-block; padding:0 24px; font-size:14px; opacity:.85; }
-  @keyframes scrollLeft { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ticker { position: fixed; bottom: 0; left: 0; width: 100%; background: #0f1620; border-top: 1px solid #101826; white-space: nowrap; overflow: hidden; }
+.ticker-inner { display: inline-block; padding: 10px 0; animation: scrollLeft 180s linear infinite; } /* slower: 180s */
+.tick { display: inline-block; padding: 0 36px; font-size: 18px; opacity: .95; } /* larger font + more spacing */
+@keyframes scrollLeft { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   @media (max-width:480px){ .title{font-size:22px} .summary{font-size:16px} }
 </style>
 </head>
