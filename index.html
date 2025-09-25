@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <title>Enterprise • DC • AI — Rolling News</title>
 <style>
   html, body { height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
@@ -15,8 +18,8 @@
   .kicker { font-size:14px; text-transform:uppercase; letter-spacing:.14em; opacity:.7; margin-bottom:8px; }
   .title { font-size:28px; line-height:1.2; margin:0 0 8px; }
   .meta { font-size:13px; opacity:.7; margin-bottom:12px; }
-  .subhead { font-size:18px; line-height:1.4; opacity:.9; margin: 0 0 10px; font-style:italic; }
-  .bodycopy { font-size:18px; line-height:1.55; opacity:.95; margin:0; }
+  .subhead { font-size:18px; line-height:1.4; opacity:.9; margin: 0 0 10px; font-style:italic; white-space:pre-wrap; }
+  .bodycopy { font-size:18px; line-height:1.55; opacity:.95; margin:0; white-space:pre-wrap; }
   footer { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:12px 16px; background:#0b0f14; border-top:1px solid #101826; }
   .btn { font-size:14px; padding:10px 14px; border-radius:999px; background:#1a2332; color:#e6edf3; border:0; cursor:pointer; }
   .status { font-size:12px; opacity:.7; }
@@ -59,8 +62,11 @@
 
 <script>
 (function(){
+  /* ===== Version (helps confirm cache) ===== */
+  var APP_VERSION = 'v1.6-no-bullets-hardened';
+
   /* ===== Config (GitHub Pages) ===== */
-  var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json';
+  var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json?v=' + APP_VERSION;
   var REFRESH_MS = 10 * 60 * 1000;   // re-download JSON every 10 min
   var ROTATE_MS  = 15 * 1000;        // 15s per card
   var MAX_ITEMS  = 120;
@@ -73,18 +79,33 @@
   /* ===== Helpers (ES5-safe) ===== */
   function $(id){ return document.getElementById(id); }
 
-  // Robust sanitiser: strips tags AND decodes entities; also removes leftover tag-like artifacts
-  function htmlToText(s){
+  // Strip tags, decode entities, and REMOVE bullet/number markers entirely.
+  function htmlToTextNoBullets(s){
     if (!s) return '';
     var div = document.createElement('div');
     div.innerHTML = String(s);
     var txt = (div.textContent || div.innerText || '') || '';
+    // Remove lingering tags just in case
     txt = txt.replace(/<[^>]*>/g,' ');
-    return txt.replace(/\s+/g,' ').trim();
+
+    // Normalize newlines
+    txt = txt.replace(/\r?\n+/g, '\n');
+
+    // Remove common bullet/number markers at the start of lines:
+    // •, ·, ●, ■, -, *, en/em dashes, "1.", "1)", "(a)", "• –" combos, etc.
+    var bulletStart = /^(?:\s*[\u2022\u2219\u25CF\u25A0\u25AA\u00B7\-\*\u2013\u2014]+|\s*(?:\(?[0-9a-zA-Z]\)?[.)]))\s+/gm;
+    txt = txt.replace(bulletStart, '');
+
+    // Also remove inline bullets that some feeds stick in-between sentences
+    txt = txt.replace(/[\u2022\u00B7\u25CF\u25A0]+/g, ' ');
+
+    // Collapse whitespace
+    txt = txt.replace(/[ \t]+/g,' ').replace(/\s*\n\s*/g, ' ').trim();
+    return txt;
   }
 
   function clampWords(s, n){
-    var t = htmlToText(s);
+    var t = htmlToTextNoBullets(s);
     var w = t.split(/\s+/);
     var out = w.slice(0, n).join(' ');
     return out + (w.length > n ? '…' : '');
@@ -95,7 +116,7 @@
   function host(u){ try{ return new URL(u).host.replace(/^www\./,''); }catch(e){ return ''; } }
   function uniqueByLinkTitle(a){ var seen={},out=[]; for(var i=0;i<a.length;i++){ var k=((a[i].link||'')+'|'+(a[i].title||'')).toLowerCase(); if(!seen[k]){ seen[k]=1; out.push(a[i]); } } return out; }
   function byDateDesc(a,b){ return b.published - a.published; }
-  function escapeHTML(s){ return String(s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;","&gt;":">","\"":"&quot;"}[c];}); }
+  function escapeHTML(s){ return String(s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
 
   // Similarity helpers to avoid repeating headline in subhead/body
   function norm(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim(); }
@@ -110,14 +131,15 @@
 
   // Build sub-head (<=30 words) and body (<=80 words) from raw summary/content
   function buildSubAndBody(title, raw){
-    var txt = htmlToText(raw || title || '');
-    // Split into sentences; if poor punctuation, fall back to commas/clauses
+    var txt = htmlToTextNoBullets(raw || title || '');
+
+    // Split into sentences; tolerate weak punctuation
     var sentences = txt.split(/(?<=[.!?])\s+/);
     if (sentences.length < 2) sentences = txt.split(/[;,:]\s+/);
 
     var sub = '', bodyText = '';
 
-    // Choose first sentence that isn't basically the headline
+    // Pick sub-head: first sentence not too similar to the title
     for (var i=0;i<sentences.length;i++){
       var s = sentences[i].trim();
       if (s.length < 15) continue;
@@ -126,7 +148,7 @@
       break;
     }
 
-    // For body, take the remaining sentences, skipping anything too similar to title or sub
+    // Body: the rest, skipping near-duplicates of title/sub-head
     var acc = [];
     for (var j=0;j<sentences.length;j++){
       var t = sentences[j].trim();
@@ -134,20 +156,15 @@
       if (tooSimilar(t, title)) continue;
       if (sub && tooSimilar(t, sub)) continue;
       acc.push(t);
-      // stop early if we already have enough words
       if (acc.join(' ').split(/\s+/).length >= 90) break;
     }
     bodyText = clampWords(acc.join(' '), 80); // <=80 words
 
-    // If sub is still empty (very terse feeds), create it from the start of body
+    // If no sub-head, derive from start of body
     if (!sub) {
       sub = clampWords(bodyText, 30);
-      // remove the sub portion from body if it's identical
-      if (tooSimilar(sub, bodyText)) {
-        bodyText = '';
-      }
+      if (tooSimilar(sub, bodyText)) bodyText = '';
     }
-
     return { subhead: sub, body: bodyText };
   }
 
@@ -223,7 +240,7 @@
     x.send();
   }
 
-  function setStatus(m){ var el=$('status'); if(el) el.textContent=m; }
+  function setStatus(m){ var el=$('status'); if(el) el.textContent=m + ' • ' + APP_VERSION; }
 
   // Ticker (≤6 headlines, last 24h, slow scroll)
   function updateTicker(list){
@@ -261,8 +278,8 @@
     $('kicker').textContent = it.source || '';
     $('title').innerHTML = '<a href="'+it.link+'" target="_blank" rel="noopener">'+escapeHTML(it.title)+'</a>';
     $('meta').textContent = it.published.toLocaleString('en-GB');
-    $('subhead').textContent = it.subhead || '';   // <=30 words
-    $('body').textContent = it.body || '';         // <=80 words
+    $('subhead').textContent = it.subhead || '';
+    $('body').textContent = it.body || '';
     $('ts').textContent = 'Stories: '+items.length+' • Updated: '+(new Date()).toLocaleTimeString('en-GB');
   }
   function next(){ idx=(idx+1)%items.length; render(); }
@@ -272,7 +289,7 @@
   /* ===== Refresh pipeline ===== */
   function refresh(){
     setStatus('Refreshing…');
-    xhrJSON(FEEDS_URL+'?t='+(Date.now()), function(err, data){
+    xhrJSON(FEEDS_URL + '&t=' + Date.now(), function(err, data){
       if(err){ return setStatus('Fetch error: '+err); }
       try{
         var merged=[], results=(data&&data.results)||[], r, i;
