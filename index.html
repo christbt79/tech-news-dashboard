@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Enterprise • DC • AI — Rolling News</title>
+<style>
+  html, body { height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+  body { background:#0b0f14; color:#e6edf3; }
+  .wrap { display:flex; flex-direction:column; height:100%; }
+  header { padding:10px 16px; font-size:18px; letter-spacing:.04em; background:#0f1620; position:sticky; top:0; z-index:2; }
+  header .ts { opacity:.7; font-size:14px; }
+  main { flex:1; display:flex; align-items:center; justify-content:center; padding:16px; }
+  .card { width:100%; max-width:860px; border-radius:16px; background:#0f1620; box-shadow:0 10px 30px rgba(0,0,0,.35); padding:22px 24px; }
+  .kicker { font-size:14px; text-transform:uppercase; letter-spacing:.14em; opacity:.7; margin-bottom:8px; }
+  .title { font-size:28px; line-height:1.2; margin:0 0 10px; }
+  .meta { font-size:13px; opacity:.7; margin-bottom:12px; }
+  .summary { font-size:18px; line-height:1.45; }
+  .bullets { margin:12px 0 0 0; padding:0 0 0 18px; }
+  .bullets li { margin:6px 0; }
+  footer { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:12px 16px; background:#0b0f14; border-top:1px solid #101826; }
+  .btn { font-size:14px; padding:10px 14px; border-radius:999px; background:#1a2332; color:#e6edf3; border:0; cursor:pointer; }
+  .status { font-size:12px; opacity:.7; }
+  a { color:#8ab4ff; text-decoration:none; } a:hover { text-decoration:underline; }
+  .ticker { position:fixed; bottom:0; left:0; width:100%; background:#0f1620; border-top:1px solid #101826; white-space:nowrap; overflow:hidden; }
+  .ticker-inner { display:inline-block; padding:8px 0; animation:scrollLeft 60s linear infinite; }
+  .tick { display:inline-block; padding:0 24px; font-size:14px; opacity:.85; }
+  @keyframes scrollLeft { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @media (max-width:480px){ .title{font-size:22px} .summary{font-size:16px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><strong>Enterprise • Data Center • AI</strong> — Rolling News Display</div>
+    <div class="ts" id="ts">Loading…</div>
+  </header>
+  <main>
+    <article class="card" id="card" aria-live="polite">
+      <div class="kicker" id="kicker">Just a sec…</div>
+      <h1 class="title" id="title">Loading…</h1>
+      <div class="meta" id="meta"></div>
+      <div class="summary" id="summary"></div>
+      <ul class="bullets" id="bullets"></ul>
+    </article>
+  </main>
+  <footer>
+    <div>
+      <button class="btn" id="prevBtn">◀ Prev</button>
+      <button class="btn" id="pauseBtn">⏸ Pause</button>
+      <button class="btn" id="nextBtn">Next ▶</button>
+    </div>
+    <div class="status" id="status">—</div>
+  </footer>
+  <div class="ticker" aria-hidden="true"><div class="ticker-inner" id="ticker"></div></div>
+</div>
+
+<script>
+(function(){
+  // ---- Config ----
+  var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json';
+  var REFRESH_MS = 10 * 60 * 1000;   // re-download JSON every 10 min
+  var ROTATE_MS  = 15 * 1000;        // 15s per card
+  var MAX_ITEMS  = 120;
+  var MAX_SUM_WORDS = 50;            // ~50-word summary
+  var BULLET_MIN = 3, BULLET_MAX = 4;
+  var HOURS_WINDOW = 48;             // only last 48h
+  var KEYWORDS = [                   // keep focus on enterprise/DC/AI
+    'AI','artificial intelligence','GPU','NVIDIA','H100','H200','B200','Blackwell',
+    'LLM','GenAI','compute','data center','datacenter','liquid cooling','rack','DCI',
+    'AWS','Azure','Google Cloud','GCP','OCI','HPE','Dell','Lenovo','Supermicro'
+  ];
+
+  // ---- Helpers (ES5) ----
+  function $(id){ return document.getElementById(id); }
+  function textOnly(s){ return (s||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); }
+  function words(n){ return function(str){ var w=textOnly(str).split(/\s+/); return w.slice(0,n).join(' ') + (w.length>n?'…':''); }; }
+  function clamp50(s){ return words(MAX_SUM_WORDS)(s); }
+  function parseDate(x){ var d=new Date(x); return isNaN(d.getTime())? new Date(): d; }
+  function withinHours(d, h){ return (Date.now()-d.getTime()) <= h*3600*1000; }
+  function host(u){ try{ return new URL(u).host.replace(/^www\./,''); }catch(e){ return ''; } }
+  function uniqueByLinkTitle(a){ var seen={},out=[]; for(var i=0;i<a.length;i++){ var k=((a[i].link||'')+'|'+(a[i].title||'')).toLowerCase(); if(!seen[k]){ seen[k]=1; out.push(a[i]); } } return out; }
+  function byDateDesc(a,b){ return b.published - a.published; }
+  function makeBullets(text){
+    var s=textOnly(text); var sentences=s.split(/(?<=[.!?])\s+/); var out=[];
+    for(var i=0;i<sentences.length&&out.length<BULLET_MAX;i++){ var seg=sentences[i].trim(); if(seg.length>18) out.push(seg); }
+    while(out.length<BULLET_MIN && s.length>0){ out.push(clamp50(s)); }
+    return out.slice(0,BULLET_MAX);
+  }
+  function passesKeywords(t){
+    if(!KEYWORDS.length) return true;
+    var hay=(t||'').toLowerCase();
+    for(var i=0;i<KEYWORDS.length;i++){ if(hay.indexOf(KEYWORDS[i].toLowerCase())!==-1) return true; }
+    return false;
+  }
+
+  // ---- Parse RSS/Atom XML strings inside feeds.json ----
+  function parseFeedXML(xmlText, sourceUrl){
+    var parser=new DOMParser(); var doc=parser.parseFromString(xmlText,'application/xml'); var out=[];
+    var items=doc.getElementsByTagName('item');
+    if(items&&items.length){
+      for(var i=0;i<items.length;i++){
+        var it=items[i];
+        var title=txt(it,'title'); var link=txt(it,'link'); var desc=txt(it,'description'); var date=txt(it,'pubDate');
+        out.push({title:title, link:link, summary:desc||title, published:parseDate(date), source:host(link)||host(sourceUrl)});
+      }
+      return out;
+    }
+    var entries=doc.getElementsByTagName('entry');
+    for(var j=0;j<entries.length;j++){
+      var en=entries[j];
+      var titleA=txt(en,'title'); var linkEl=en.getElementsByTagName('link')[0];
+      var href=(linkEl&&(linkEl.getAttribute('href')||linkEl.textContent))||'';
+      var sumA=txt(en,'summary')||txt(en,'content'); var dateA=txt(en,'updated')||txt(en,'published');
+      out.push({title:titleA, link:href, summary:sumA||titleA, published:parseDate(dateA), source:host(href)||host(sourceUrl)});
+    }
+    return out;
+    function txt(p,tag){ var el=p.getElementsByTagName(tag)[0]; return el? (el.textContent||el.innerText||'').trim():''; }
+  }
+
+  function buildItem(raw){
+    var sum = clamp50(raw.summary||raw.title);
+    var bullets = makeBullets(sum);
+    return { title: raw.title, link: raw.link, source: raw.source, summary: sum, bullets: bullets, published: raw.published };
+  }
+
+  // ---- Fetch/refresh ----
+  function xhrJSON(url, cb){ var r=new XMLHttpRequest(); r.open('GET', url, true); r.onreadystatechange=function(){ if(r.readyState===4){ try{ if(r.status>=200 && r.status<300){ cb(null, JSON.parse(r.responseText)); } else { cb(new Error('HTTP '+r.status)); } } catch(e){ cb(e); } } }; r.send(); }
+  function refresh(){
+    setStatus('Refreshing…');
+    xhrJSON(FEEDS_URL+'?t='+(Date.now()), function(err, data){
+      if(err){ return setStatus('Fetch error: '+err); }
+      try{
+        var merged=[], results=(data&&data.results)||[];
+        for(var i=0;i<results.length;i++){
+          var r=results[i]; if(!r.ok) continue;
+          merged = merged.concat(parseFeedXML(r.text, r.url));
+        }
+        merged = merged.filter(function(x){ return withinHours(x.published, HOURS_WINDOW) && passesKeywords(x.title+' '+x.summary); });
+        merged = uniqueByLinkTitle(merged).sort(byDateDesc).slice(0, MAX_ITEMS).map(buildItem);
+        items=merged; idx=0; render(); updateTicker(items);
+        setStatus('Updated '+items.length+' items');
+      }catch(e){ setStatus('Parse error: '+e); }
+    });
+  }
+
+  // ---- UI glue ----
+  var items=[], idx=0, paused=false, timer=null;
+  function setStatus(m){ var el=$('status'); if(el) el.textContent=m; }
+  function escapeHTML(s){ return String(s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+  function updateTicker(list){ var t=$('ticker'); if(!t) return; var texts=[]; for(var i=0;i<list.length&&i<30;i++){ texts.push('<span class="tick">'+escapeHTML(list[i].source)+' · '+escapeHTML(list[i].title)+'</span>'); } var joined=texts.join(''); t.innerHTML='<div>'+joined+joined+'</div>'; }
+  function render(){ if(!items.length) return; var it=items[idx%items.length]; $('kicker').textContent=it.source||''; $('title').innerHTML='<a href="'+it.link+'" target="_blank" rel="noopener">'+escapeHTML(it.title)+'</a>'; $('meta').textContent=it.published.toLocaleString('en-GB'); $('summary').textContent=it.summary; var bl=$('bullets'); bl.innerHTML=''; for(var i=0;i<it.bullets.length;i++){ var li=document.createElement('li'); li.textContent=it.bullets[i]; bl.appendChild(li);} $('ts').textContent='Stories: '+items.length+' • Updated: '+(new Date()).toLocaleTimeString('en-GB'); }
+  function next(){ idx=(idx+1)%items.length; render(); }
+  function prev(){ idx=(idx-1+items.length)%items.length; render(); }
+  function startRotate(){ if(timer) clearInterval(timer); timer=setInterval(function(){ if(!paused&&items.length) next(); }, ROTATE_MS); }
+
+  document.getElementById('nextBtn').onclick=function(){ paused=true; document.getElementById('pauseBtn').textContent='▶ Resume'; next(); };
+  document.getElementById('prevBtn').onclick=function(){ paused=true; document.getElementById('pauseBtn').textContent='▶ Resume'; prev(); };
+  document.getElementById('pauseBtn').onclick=function(){ paused=!paused; this.textContent=paused?'▶ Resume':'⏸ Pause'; };
+
+  refresh(); startRotate(); setInterval(refresh, REFRESH_MS);
+})();
+</script>
+</body>
+</html>
