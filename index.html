@@ -60,35 +60,28 @@
 
 <script>
 (function(){
-  /* ===== Config (GitHub Pages) ===== */
   var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json';
-  var REFRESH_MS = 10 * 60 * 1000;   // re-download JSON every 10 min
-  var ROTATE_MS  = 15 * 1000;        // 15s per card
+  var REFRESH_MS = 10 * 60 * 1000;
+  var ROTATE_MS  = 15 * 1000;
   var MAX_ITEMS  = 120;
+  var TICKER_MAX = 6;
+  var TICKER_HOURS = 24;
+  var TICKER_SECONDS = 240;
 
-  // Ticker controls
-  var TICKER_MAX = 6;        // up to 6 headlines
-  var TICKER_HOURS = 24;     // last 24 hours
-  var TICKER_SECONDS = 240;  // slow scroll (also set in CSS)
-
-  /* ===== Helpers (ES5-safe) ===== */
   function $(id){ return document.getElementById(id); }
 
-  // Robust sanitiser: strips tags AND decodes entities; also removes leftover tag-y artifacts
   function htmlToText(s){
     if (!s) return '';
     var div = document.createElement('div');
     div.innerHTML = String(s);
     var txt = (div.textContent || div.innerText || '') || '';
-    // remove any dangling tag-like fragments that came through (e.g. "<p data-...>")
     txt = txt.replace(/<[^>]*>/g,' ');
     return txt.replace(/\s+/g,' ').trim();
   }
   function clampWordsPlain(s, n){
     var t = htmlToText(s);
     var w = t.split(/\s+/);
-    var out = w.slice(0, n).join(' ');
-    return out + (w.length > n ? '…' : '');
+    return w.slice(0,n).join(' ') + (w.length>n ? '…' : '');
   }
   function parseDate(x){ var d=new Date(x); return isNaN(d.getTime())? new Date() : d; }
   function withinHours(d,h){ return (Date.now()-d.getTime()) <= h*3600*1000; }
@@ -97,216 +90,117 @@
   function byDateDesc(a,b){ return b.published - a.published; }
   function escapeHTML(s){ return String(s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
 
-  // For bullet de-dup
   function norm(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim(); }
   function overlapRatio(a,b){
-    var wa=norm(a).split(' '), wb=norm(b).split(' '), set={}, inter=0, i;
-    for(i=0;i<wa.length;i++) set[wa[i]]=1;
-    for(i=0;i<wb.length;i++) if(set[wb[i]]) inter++;
+    var wa=norm(a).split(' '), wb=norm(b).split(' '), set={}, inter=0;
+    for(var i=0;i<wa.length;i++) set[wa[i]]=1;
+    for(var j=0;j<wb.length;j++) if(set[wb[j]]) inter++;
     var denom=Math.max(wa.length, wb.length) || 1;
     return inter/denom;
   }
-  function isSubstringish(a,b){
-    a = norm(a); b = norm(b);
-    return a.length>0 && b.indexOf(a) !== -1 || b.length>0 && a.indexOf(b) !== -1;
-  }
 
-  // Build concise, distinct bullets
-  function bulletsFrom(title, text){
-    var s = htmlToText(text || title || '');
-    // Prefer full sentences
+  function bulletsFrom(title, summary, text){
+    var s = htmlToText(text || summary || title || '');
     var parts = s.split(/(?<=[.!?])\s+/);
     if (parts.length < 2) parts = s.split(/[;,]\s+/);
 
-    // clean up parts
     var cleaned = [];
-    var seen = {};
     for (var i=0;i<parts.length;i++){
       var seg = parts[i].trim();
-      if (seg.length < 20) continue;                 // too short
-      if (overlapRatio(seg, title) > 0.75) continue; // duplicates headline
-      // de-dup exact & near-dup
-      var key = norm(seg);
-      if (seen[key]) continue;
-      var tooClose = false;
+      if (seg.length < 20) continue;
+      if (overlapRatio(seg, title) > 0.75) continue;
+      if (overlapRatio(seg, summary) > 0.75) continue; // NEW: skip if near-duplicate of summary
+      var tooClose=false;
       for (var j=0;j<cleaned.length;j++){
-        if (overlapRatio(seg, cleaned[j]) > 0.75 || isSubstringish(seg, cleaned[j])) { tooClose = true; break; }
+        if (overlapRatio(seg, cleaned[j]) > 0.75) { tooClose=true; break; }
       }
-      if (!tooClose) { cleaned.push(seg); seen[key] = 1; }
-      if (cleaned.length >= 4) break;
+      if (!tooClose) cleaned.push(seg);
+      if (cleaned.length>=4) break;
     }
 
-    // Backfill with different windows (ensure each slice differs)
-    if (cleaned.length < 3 && s) {
+    // Backfill if too few
+    if (cleaned.length<3 && s){
       var words = s.split(/\s+/);
-      var start = 0, step = 14; // 14-word windows
-      while (cleaned.length < 3 && start < words.length){
-        var slice = words.slice(start, start+step).join(' ');
-        start += step;
-        if (slice.length < 20) continue;
-        var similar = false;
+      var start=0, step=14;
+      while(cleaned.length<3 && start<words.length){
+        var slice=words.slice(start,start+step).join(' ');
+        start+=step;
+        if (slice.length<20) continue;
+        if (overlapRatio(slice, summary) > 0.7) continue;
+        var dupe=false;
         for (var k=0;k<cleaned.length;k++){
-          if (overlapRatio(slice, cleaned[k]) > 0.7 || isSubstringish(slice, cleaned[k])) { similar = true; break; }
+          if (overlapRatio(slice, cleaned[k]) > 0.7) { dupe=true; break; }
         }
-        if (!similar) cleaned.push(slice + (start < words.length ? '…' : ''));
+        if (!dupe) cleaned.push(slice + (start<words.length?'…':''));
       }
     }
-    return cleaned.slice(0, 4);
+    return cleaned.slice(0,4);
   }
 
-  // Parse RSS/Atom XML strings from feeds.json
   function parseFeedXML(xmlText, sourceUrl){
     var parser=new DOMParser(); var doc=parser.parseFromString(xmlText,'application/xml'); var out=[];
     var rss=doc.getElementsByTagName('item');
     if(rss && rss.length){
       for(var i=0;i<rss.length;i++){
         var it=rss[i];
-        var title = getText(it,'title');
-        var link  = getText(it,'link');
-        var desc  = getRaw(it,'description');    // raw (may include HTML), we clean later
-        var date  = getText(it,'pubDate');
-        var src   = host(link) || host(sourceUrl);
-        out.push({ title:title, link:link, summary:desc || title, published:parseDate(date), source:src });
+        var title=getText(it,'title');
+        var link=getText(it,'link');
+        var desc=getRaw(it,'description');
+        var date=getText(it,'pubDate');
+        var src=host(link)||host(sourceUrl);
+        out.push({title:title,link:link,summary:desc||title,published:parseDate(date),source:src});
       }
       return out;
     }
     var entries=doc.getElementsByTagName('entry');
     for(var j=0;j<entries.length;j++){
       var en=entries[j];
-      var titleA = getText(en,'title');
-      var linkEl = en.getElementsByTagName('link')[0];
-      var href   = (linkEl && (linkEl.getAttribute('href')||linkEl.textContent)) || '';
-      var sumA   = getRaw(en,'summary') || getRaw(en,'content'); // raw HTML-ish
-      var dateA  = getText(en,'updated') || getText(en,'published');
-      var srcA   = host(href) || host(sourceUrl);
-      out.push({ title:titleA, link:href, summary:sumA || titleA, published:parseDate(dateA), source:srcA });
+      var titleA=getText(en,'title');
+      var linkEl=en.getElementsByTagName('link')[0];
+      var href=(linkEl&&(linkEl.getAttribute('href')||linkEl.textContent))||'';
+      var sumA=getRaw(en,'summary')||getRaw(en,'content');
+      var dateA=getText(en,'updated')||getText(en,'published');
+      var srcA=host(href)||host(sourceUrl);
+      out.push({title:titleA,link:href,summary:sumA||titleA,published:parseDate(dateA),source:srcA});
     }
     return out;
 
-    function getText(parent, tag){
-      var el = parent.getElementsByTagName(tag)[0];
-      if (!el) return '';
-      return (el.textContent || el.innerText || '').trim();
-    }
-    function getRaw(parent, tag){
-      var el = parent.getElementsByTagName(tag)[0];
-      if (!el) return '';
-      // Prefer innerHTML-like serialization if present, else textContent
-      var t = '';
-      if (el.childNodes && el.childNodes.length) {
-        for (var i=0;i<el.childNodes.length;i++){
-          var n = el.childNodes[i];
-          t += (n.outerHTML || n.nodeValue || '');
-        }
-      } else {
-        t = el.textContent || el.innerText || '';
-      }
-      return (t || '').trim();
-    }
+    function getText(parent,tag){ var el=parent.getElementsByTagName(tag)[0]; return el?(el.textContent||el.innerText||'').trim():''; }
+    function getRaw(parent,tag){ var el=parent.getElementsByTagName(tag)[0]; if(!el) return ''; var t=''; if(el.childNodes&&el.childNodes.length){ for(var i=0;i<el.childNodes.length;i++){ var n=el.childNodes[i]; t+=(n.outerHTML||n.nodeValue||''); } } else { t=el.textContent||el.innerText||''; } return (t||'').trim(); }
   }
 
-  // Build final item with CLEAN summary + bullets
   function buildItem(raw){
-    // Clean and clamp summary; ensure no tag artifacts
     var cleanSummary = clampWordsPlain(raw.summary || raw.title, 50);
-    var bullets = bulletsFrom(raw.title, cleanSummary);
-    return { title: raw.title, link: raw.link, source: raw.source, summary: cleanSummary, bullets: bullets, published: raw.published };
+    var bullets = bulletsFrom(raw.title, cleanSummary, raw.summary);
+    return {title:raw.title,link:raw.link,source:raw.source,summary:cleanSummary,bullets:bullets,published:raw.published};
   }
 
-  // XHR helper
-  function xhrJSON(url, cb){
-    var x=new XMLHttpRequest();
-    x.open('GET', url, true);
-    x.onreadystatechange=function(){
-      if(x.readyState===4){
-        try{
-          if(x.status>=200 && x.status<300){ cb(null, JSON.parse(x.responseText)); }
-          else { cb(new Error('HTTP '+x.status)); }
-        } catch(e){ cb(e); }
-      }
-    };
-    x.send();
-  }
-
+  function xhrJSON(url,cb){ var x=new XMLHttpRequest(); x.open('GET',url,true); x.onreadystatechange=function(){ if(x.readyState===4){ try{ if(x.status>=200&&x.status<300){ cb(null,JSON.parse(x.responseText)); } else { cb(new Error('HTTP '+x.status)); } }catch(e){ cb(e);} } }; x.send(); }
   function setStatus(m){ var el=$('status'); if(el) el.textContent=m; }
 
-  // Ticker (≤6 headlines, last 24h, slow scroll)
   function updateTicker(list){
     var t=$('ticker'); if(!t) return;
-    var recent=[], i, j, k;
-
-    for (i=0;i<list.length;i++){
-      if (withinHours(list[i].published, TICKER_HOURS)) recent.push(list[i]);
-      if (recent.length >= TICKER_MAX) break;
-    }
-    if (recent.length < TICKER_MAX){
-      for (j=0;j<list.length && recent.length<TICKER_MAX; j++){
-        var dupe=false;
-        for(k=0;k<recent.length;k++){
-          if (recent[k].title===list[j].title && recent[k].source===list[j].source){ dupe=true; break; }
-        }
-        if(!dupe) recent.push(list[j]);
-      }
-    }
-
-    var texts=[];
-    for(i=0;i<recent.length;i++){
-      texts.push('<span class="tick">'+escapeHTML(recent[i].source)+' · '+escapeHTML(recent[i].title)+'</span>');
-    }
-    t.innerHTML = '<div class="ticker-inner" id="tickerInner">' + texts.join('') + texts.join('') + '</div>';
-    var inner=$('tickerInner'); if(inner) inner.style.animationDuration = TICKER_SECONDS + 's';
+    var recent=[];
+    for(var i=0;i<list.length;i++){ if(withinHours(list[i].published,TICKER_HOURS)) recent.push(list[i]); if(recent.length>=TICKER_MAX) break; }
+    if(recent.length<TICKER_MAX){ for(var j=0;j<list.length&&recent.length<TICKER_MAX;j++){ var dupe=false; for(var k=0;k<recent.length;k++){ if(recent[k].title===list[j].title&&recent[k].source===list[j].source){dupe=true;break;} } if(!dupe) recent.push(list[j]); } }
+    var texts=[]; for(var m=0;m<recent.length;m++){ texts.push('<span class="tick">'+escapeHTML(recent[m].source)+' · '+escapeHTML(recent[m].title)+'</span>'); }
+    t.innerHTML='<div class="ticker-inner" id="tickerInner">'+texts.join('')+texts.join('')+'</div>';
+    var inner=$('tickerInner'); if(inner) inner.style.animationDuration=TICKER_SECONDS+'s';
   }
 
-  /* ===== App state / UI ===== */
   var items=[], idx=0, paused=false, timer=null;
-
-  function render(){
-    if(!items.length) return;
-    var it=items[idx%items.length];
-    $('kicker').textContent = it.source || '';
-    $('title').innerHTML = '<a href="'+it.link+'" target="_blank" rel="noopener">'+escapeHTML(it.title)+'</a>';
-    $('meta').textContent = it.published.toLocaleString('en-GB');
-    $('summary').textContent = it.summary; // already cleaned
-    var bl=$('bullets'); bl.innerHTML='';
-    for(var i=0;i<it.bullets.length;i++){
-      var li=document.createElement('li');
-      li.textContent = it.bullets[i];
-      bl.appendChild(li);
-    }
-    $('ts').textContent = 'Stories: '+items.length+' • Updated: '+(new Date()).toLocaleTimeString('en-GB');
-  }
+  function render(){ if(!items.length) return; var it=items[idx%items.length]; $('kicker').textContent=it.source||''; $('title').innerHTML='<a href=\"'+it.link+'\" target=\"_blank\" rel=\"noopener\">'+escapeHTML(it.title)+'</a>'; $('meta').textContent=it.published.toLocaleString('en-GB'); $('summary').textContent=it.summary; var bl=$('bullets'); bl.innerHTML=''; for(var i=0;i<it.bullets.length;i++){ var li=document.createElement('li'); li.textContent=it.bullets[i]; bl.appendChild(li);} $('ts').textContent='Stories: '+items.length+' • Updated: '+(new Date()).toLocaleTimeString('en-GB'); }
   function next(){ idx=(idx+1)%items.length; render(); }
   function prev(){ idx=(idx-1+items.length)%items.length; render(); }
-  function startRotate(){ if(timer) clearInterval(timer); timer=setInterval(function(){ if(!paused&&items.length) next(); }, ROTATE_MS); }
+  function startRotate(){ if(timer) clearInterval(timer); timer=setInterval(function(){ if(!paused&&items.length) next(); },ROTATE_MS); }
 
-  /* ===== Refresh pipeline ===== */
-  function refresh(){
-    setStatus('Refreshing…');
-    xhrJSON(FEEDS_URL+'?t='+(Date.now()), function(err, data){
-      if(err){ return setStatus('Fetch error: '+err); }
-      try{
-        var merged=[], results=(data&&data.results)||[], r, i;
-        for(i=0;i<results.length;i++){
-          r=results[i]; if(!r.ok) continue;
-          merged = merged.concat(parseFeedXML(r.text, r.url));
-        }
-        merged = uniqueByLinkTitle(merged).sort(byDateDesc).slice(0, MAX_ITEMS);
+  function refresh(){ setStatus('Refreshing…'); xhrJSON(FEEDS_URL+'?t='+(Date.now()),function(err,data){ if(err){ return setStatus('Fetch error: '+err);} try{ var merged=[],results=(data&&data.results)||[]; for(var i=0;i<results.length;i++){ var r=results[i]; if(!r.ok) continue; merged=merged.concat(parseFeedXML(r.text,r.url)); } merged=uniqueByLinkTitle(merged).sort(byDateDesc).slice(0,MAX_ITEMS); var built=[]; for(var ii=0;ii<merged.length;ii++){ built.push(buildItem(merged[ii])); } items=built; idx=0; render(); updateTicker(items); setStatus('Updated '+items.length+' items'); }catch(e){ setStatus('Parse error: '+e);} }); }
 
-        var built=[], ii;
-        for(ii=0; ii<merged.length; ii++){ built.push(buildItem(merged[ii])); }
-        items=built; idx=0; render(); updateTicker(items);
-        setStatus('Updated '+items.length+' items');
-      }catch(e){ setStatus('Parse error: '+e); }
-    });
-  }
-
-  // Buttons
   $('nextBtn').onclick=function(){ paused=true; $('pauseBtn').textContent='▶ Resume'; next(); };
   $('prevBtn').onclick=function(){ paused=true; $('pauseBtn').textContent='▶ Resume'; prev(); };
   $('pauseBtn').onclick=function(){ paused=!paused; this.textContent=paused?'▶ Resume':'⏸ Pause'; };
 
-  // Init
-  refresh(); startRotate(); setInterval(refresh, REFRESH_MS);
+  refresh(); startRotate(); setInterval(refresh,REFRESH_MS);
 })();
 </script>
 </body>
