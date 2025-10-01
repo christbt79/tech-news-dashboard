@@ -27,12 +27,17 @@
   .theme-btn { font-size:13px; padding:8px 10px; border-radius:999px; background:#121a26; color:#e6edf3; border:1px solid #101826; cursor:pointer; }
 
   /* Leave room for fixed controls + ticker (controls bottom: 58px; ticker: 48px) */
-  main { flex:1; display:flex; align-items:center; justify-content:center; padding:22px 16px 116px; }
+  /* Added top padding (24px) and larger bottom padding (170px) so content never sits under controls/ticker. */
+  main { flex:1; display:flex; align-items:center; justify-content:center; padding:24px 16px 170px; }
+  /* Short screens (older tablets) get a bit more bottom padding automatically. */
+  @media (max-height: 640px) { main { padding-bottom: 190px; } }
+
   .card {
     width:100%; max-width:960px; border-radius:18px;
     background:linear-gradient(180deg, #0f1620 0%, #121a26 100%);
     box-shadow:0 18px 60px rgba(0,0,0,.45);
     padding:26px 28px;
+    margin-bottom:24px; /* ensure extra clearance above controls */
   }
   .kicker { font-size:13px; text-transform:uppercase; letter-spacing:.14em; opacity:.85; margin-bottom:10px; display:flex; align-items:center; gap:10px; }
   .srcpill { display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,.04); border:1px solid #101826; padding:6px 10px; border-radius:999px; }
@@ -115,7 +120,7 @@
 <script>
 (function(){
   /* ===== Version ===== */
-  var APP_VERSION = 'v1.9.2-legacy-safe';
+  var APP_VERSION = 'v1.9.3-legacy-safe';
 
   /* ===== Config (GitHub Pages) ===== */
   var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json?v=' + APP_VERSION;
@@ -194,20 +199,14 @@
     return (h>>>0).toString(36).slice(0,12);
   }
 
-  /* Lookbehind-free sentence splitter (legacy safe)
-     Splits on ., !, ? followed by whitespace, while keeping punctuation attached. */
+  /* Lookbehind-free sentence splitter (legacy safe) */
   function splitSentences(text){
     var t = htmlToTextNoBullets(text);
-    var parts = t.split(/([.!?])\s+/); // capture delimiters
+    var parts = t.split(/([.!?])\s+/);
     var out = [], i, buf='';
     for(i=0;i<parts.length;i++){
-      if (i % 2 === 0) { // text chunk
-        buf += parts[i];
-      } else { // delimiter
-        buf += parts[i];
-        out.push(buf);
-        buf = '';
-      }
+      if (i % 2 === 0) { buf += parts[i]; }
+      else { buf += parts[i]; out.push(buf); buf=''; }
     }
     if (buf.trim()) out.push(buf);
     return out;
@@ -216,12 +215,9 @@
   // Build sub-head (≤30 words) and body (target 150 words). Pad neutrally if too short.
   function buildSubAndBody(title, raw, sourceHost){
     var sentences = splitSentences(raw || title || '');
-    if (sentences.length < 2) { // fallback split if needed
-      sentences = (htmlToTextNoBullets(raw||title||'')).split(/[;,:]\s+/);
-    }
+    if (sentences.length < 2) { sentences = (htmlToTextNoBullets(raw||title||'')).split(/[;,:]\s+/); }
 
     var sub = '', bodyText = '';
-    // Sub-head: first sentence not too similar to title
     for (var i=0;i<sentences.length;i++){
       var s = sentences[i].trim();
       if (s.length < 15) continue;
@@ -229,7 +225,6 @@
       sub = clampWords(s, 30);
       break;
     }
-    // Body: remaining sentences, avoiding near-duplicates
     var acc = [];
     for (var j=0;j<sentences.length;j++){
       var t = sentences[j].trim();
@@ -241,7 +236,6 @@
     }
     bodyText = clampWords(acc.join(' '), 150);
 
-    // Pad neutrally if still short
     if (wordCount(bodyText) < 120) {
       var generic = [
         "Context: This update reflects activity across enterprise IT, data center infrastructure, and AI adoption. ",
