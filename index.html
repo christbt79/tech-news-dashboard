@@ -8,101 +8,66 @@
 <meta http-equiv="Expires" content="0" />
 <title>Enterprise • DC • AI — Rolling News</title>
 <style>
-  :root {
-    --bg: #0b0f14;
-    --panel: #0f1620;
-    --panel-contrast: #121a26;
-    --text: #e6edf3;
-    --muted: #96a5b4;
-    --accent: #8ab4ff;
-    --shadow: 0 18px 60px rgba(0,0,0,.45);
-    --ticker-bg: #0f1620;
-    --divider: #101826;
-    --ticker-h: 48px; /* ticker height for layout math */
-  }
-  .theme-sepia {
-    --bg: #19130c;
-    --panel: #231a12;
-    --panel-contrast: #2a2017;
-    --text: #efe7dc;
-    --muted: #d0c2af;
-    --accent: #ffd27a;
-    --shadow: 0 18px 60px rgba(0,0,0,.45);
-    --ticker-bg: #231a12;
-    --divider: #3a2e21;
-  }
-
+  /* Legacy-friendly: NO CSS variables, keep it simple */
   html, body { height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
-  body { background: var(--bg); color: var(--text); }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-
+  body { background:#0b0f14; color:#e6edf3; }
+  a { color:#8ab4ff; text-decoration:none; } a:hover { text-decoration:underline; }
   .wrap { display:flex; flex-direction:column; height:100%; }
 
   header {
-    padding: 10px 16px;
-    background: var(--panel);
-    position: sticky; top: 0; z-index: 3;
-    border-bottom: 1px solid var(--divider);
-    display:flex; align-items:center; gap:12px;
+    padding:10px 16px; background:#0f1620; position:sticky; top:0; z-index:3;
+    border-bottom:1px solid #101826; display:flex; align-items:center; gap:12px;
   }
-  .brand { font-size: 18px; letter-spacing:.04em; display:flex; gap:8px; align-items:center; }
+  .brand { font-size:18px; letter-spacing:.04em; display:flex; gap:8px; align-items:center; }
   .right { margin-left:auto; display:flex; align-items:center; gap:10px; }
   .ts { opacity:.75; font-size:14px; }
   .clock { font-variant-numeric: tabular-nums; }
-  .health {
-    width:10px; height:10px; border-radius:50%; box-shadow: 0 0 0 2px rgba(0,0,0,.25);
-  }
-  .health.ok    { background:#21d07a; }
-  .health.stale { background:#e0a800; }
-  .health.err   { background:#e5534b; }
-  .theme-btn { font-size:13px; padding:8px 10px; border-radius:999px; background: var(--panel-contrast); color: var(--text); border: 1px solid var(--divider); cursor: pointer; }
+  .health { width:10px; height:10px; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,.25); }
+  .health.ok { background:#21d07a; } .health.stale { background:#e0a800; } .health.err { background:#e5534b; }
+  .theme-btn { font-size:13px; padding:8px 10px; border-radius:999px; background:#121a26; color:#e6edf3; border:1px solid #101826; cursor:pointer; }
 
-  main { flex:1; display:flex; align-items:center; justify-content:center; padding:22px 16px calc(var(--ticker-h) + 90px); }
+  /* Leave room for fixed controls + ticker (controls bottom: 58px; ticker: 48px) */
+  main { flex:1; display:flex; align-items:center; justify-content:center; padding:22px 16px 116px; }
   .card {
-    width: 100%; max-width: 960px;
-    border-radius: 18px;
-    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-contrast) 100%);
-    box-shadow: var(--shadow);
-    padding: 26px 28px;
+    width:100%; max-width:960px; border-radius:18px;
+    background:linear-gradient(180deg, #0f1620 0%, #121a26 100%);
+    box-shadow:0 18px 60px rgba(0,0,0,.45);
+    padding:26px 28px;
   }
   .kicker { font-size:13px; text-transform:uppercase; letter-spacing:.14em; opacity:.85; margin-bottom:10px; display:flex; align-items:center; gap:10px; }
-  .srcpill { display:inline-flex; align-items:center; gap:8px; background: rgba(255,255,255,.04); border:1px solid var(--divider); padding:6px 10px; border-radius:999px; }
+  .srcpill { display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,.04); border:1px solid #101826; padding:6px 10px; border-radius:999px; }
   .srcpill img { width:16px; height:16px; border-radius:3px; display:block; }
-  .title { font-size: 32px; line-height: 1.2; margin: 0 0 10px; }
-  .meta { font-size: 13px; opacity: .75; margin-bottom: 12px; }
-  .subhead { font-size: 19px; line-height: 1.45; opacity:.95; margin: 0 0 12px; font-style: italic; }
-  .bodycopy { font-size: 18px; line-height: 1.58; opacity:.98; margin:0; }
+  .title { font-size:32px; line-height:1.2; margin:0 0 10px; }
+  .meta { font-size:13px; opacity:.75; margin-bottom:12px; }
+  .subhead { font-size:19px; line-height:1.45; opacity:.95; margin:0 0 12px; font-style:italic; }
+  .bodycopy { font-size:18px; line-height:1.58; opacity:.98; margin:0; }
 
-  /* Controls sit ABOVE ticker and are always clickable */
+  /* Controls: fixed above ticker, always clickable */
   footer {
-    position: fixed; left:0; right:0;
-    bottom: calc(var(--ticker-h) + 10px);
-    z-index: 3;
+    position:fixed; left:0; right:0; bottom:58px; z-index:3;
     display:flex; gap:10px; align-items:center; justify-content:center;
   }
-  .btn { font-size:14px; padding:10px 14px; border-radius:999px; background: var(--panel); color: var(--text); border: 1px solid var(--divider); cursor: pointer; }
+  .btn { font-size:14px; padding:10px 14px; border-radius:999px; background:#0f1620; color:#e6edf3; border:1px solid #101826; cursor:pointer; }
   .btn:active { transform: translateY(1px); }
-  .status { font-size:12px; opacity:.75; background: var(--panel); border: 1px solid var(--divider); border-radius: 999px; padding: 8px 10px; }
+  .status { font-size:12px; opacity:.75; background:#0f1620; border:1px solid #101826; border-radius:999px; padding:8px 10px; }
 
-  /* Ticker (below everything else) */
-  .ticker { position:fixed; bottom:0; left:0; width:100%; background: var(--ticker-bg); border-top:1px solid var(--divider); white-space:nowrap; overflow:hidden; z-index: 2; height: var(--ticker-h); }
-  .ticker-inner { display:inline-block; padding:12px 0; animation:scrollLeft 240s linear infinite; }
-  .ticker.paused .ticker-inner { animation-play-state: paused; }
+  /* Ticker: fixed at very bottom */
+  .ticker { position:fixed; bottom:0; left:0; width:100%; height:48px;
+    background:#0f1620; border-top:1px solid #101826; white-space:nowrap; overflow:hidden; z-index:2; }
+  .ticker-inner { display:inline-block; padding:12px 0; -webkit-animation:scrollLeft 240s linear infinite; animation:scrollLeft 240s linear infinite; }
+  .ticker.paused .ticker-inner { -webkit-animation-play-state: paused; animation-play-state: paused; }
   .tick { display:inline-block; padding:0 36px; font-size:18px; opacity:.95; }
-  @keyframes scrollLeft { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-  @media (max-width: 480px) {
-    .title{font-size:24px} .subhead,.bodycopy{font-size:16px}
-  }
+  @-webkit-keyframes scrollLeft { from { -webkit-transform: translateX(0); transform: translateX(0);} to { -webkit-transform: translateX(-50%); transform: translateX(-50%);} }
+  @keyframes scrollLeft { from { transform: translateX(0);} to { transform: translateX(-50%);} }
+
+  @media (max-width:480px){ .title{font-size:24px} .subhead,.bodycopy{font-size:16px} }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="brand">
-      <strong>Enterprise • Data Center • AI</strong> — Rolling News Display
-    </div>
+    <div class="brand"><strong>Enterprise • Data Center • AI</strong> — Rolling News Display</div>
     <div class="right">
       <div class="health ok" id="health" title="Status"></div>
       <div class="ts"><span class="clock" id="clock">--:--:--</span> • <span id="ts">Booting…</span></div>
@@ -140,7 +105,7 @@
 <script>
 (function(){
   /* ===== Version ===== */
-  var APP_VERSION = 'v1.9-controls+150w';
+  var APP_VERSION = 'v1.9.1-legacy-android';
 
   /* ===== Config (GitHub Pages) ===== */
   var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json?v=' + APP_VERSION;
@@ -148,31 +113,36 @@
   var ROTATE_MS  = 15 * 1000;        // 15s per card
   var MAX_ITEMS  = 140;
 
-  // Ticker controls
-  var TICKER_MAX = 6;        // up to 6 headlines
-  var TICKER_HOURS = 24;     // last 24 hours
-  var TICKER_SECONDS = 240;  // slow scroll
+  var TICKER_MAX = 6;
+  var TICKER_HOURS = 24;
+  var TICKER_SECONDS = 240;
 
-  // Health thresholds (minutes)
-  var STALE_MIN = 20;
+  var STALE_MIN = 20; // minutes
 
   /* ===== State ===== */
   var items=[], idx=0, paused=false, timer=null;
   var lastFetchOK = true, lastFetchAt = 0;
 
-  /* ===== Helpers ===== */
+  /* ===== Helpers (ES5-safe) ===== */
   function $(id){ return document.getElementById(id); }
   function setStatus(s){ var el=$('status'); if(el) el.textContent = s + ' • ' + APP_VERSION; }
   function setHeaderStatus(){
-    var ts = $('ts');
-    var h = $('health');
+    var ts = $('ts'), h = $('health');
     if (!ts || !h) return;
-    if (!lastFetchAt) { ts.textContent = 'Booting…'; h.className='health stale'; h.title='Booting'; return; }
+    if (!lastFetchAt) { ts.textContent='Booting…'; h.className='health stale'; h.title='Booting'; return; }
     var ageMin = Math.floor((Date.now()-lastFetchAt)/60000);
     ts.textContent = 'Stories: '+items.length+' • Updated: '+new Date(lastFetchAt).toLocaleTimeString('en-GB')+' • '+APP_VERSION;
     if (!lastFetchOK) { h.className='health err'; h.title='Fetch error'; }
     else if (ageMin > STALE_MIN) { h.className='health stale'; h.title='Stale ('+ageMin+'m)'; }
     else { h.className='health ok'; h.title='Fresh ('+ageMin+'m)'; }
+  }
+
+  // Safe hostname parsing for legacy browsers (no new URL())
+  var _a = document.createElement('a');
+  function host(u){
+    if (!u) return '';
+    try { _a.href = u; return (_a.hostname || '').replace(/^www\./,''); }
+    catch(e){ return ''; }
   }
 
   // Strip tags & bullets; decode entities
@@ -198,7 +168,6 @@
 
   function parseDate(x){ var d=new Date(x); return isNaN(d.getTime())? new Date() : d; }
   function withinHours(d,h){ return (Date.now()-d.getTime()) <= h*3600*1000; }
-  function host(u){ try{ return new URL(u).host.replace(/^www\./,''); }catch(e){ return ''; } }
   function escapeHTML(s){ return String(s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;","&gt;":">","\"":"&quot;"}[c];}); }
 
   // Fuzzy similarity for de-dupe
@@ -215,7 +184,7 @@
     return (h>>>0).toString(36).slice(0,12);
   }
 
-  // Build sub-head (≤30 words) and body (target 150 words). If too short, pad with neutral context.
+  // Build sub-head (≤30 words) and body (target 150 words). Pad neutrally if too short.
   function buildSubAndBody(title, raw, sourceHost){
     var txt = htmlToTextNoBullets(raw || title || '');
     var sentences = txt.split(/(?<=[.!?])\s+/);
@@ -240,24 +209,21 @@
     }
     bodyText = clampWords(acc.join(' '), 150);
 
-    // If still short, add generic, non-factual context to reach ~150 words
     if (wordCount(bodyText) < 120) {
       var generic = [
-        "Context: This update reflects ongoing activity across enterprise IT, data center infrastructure, and AI adoption. ",
-        "Implications: Teams may evaluate performance, cost, security, and integration with existing cloud or on-prem stacks. ",
-        "Considerations: Roadmaps, availability, regional support, partner ecosystems, and licensing often shape near-term decisions. ",
-        "Next steps: For accurate details, timelines, and benchmarks, review the source article directly and verify with the vendor. "
+        "Context: This update reflects activity across enterprise IT, data center infrastructure, and AI adoption. ",
+        "Implications: Teams may weigh performance, cost, security, and integration with cloud or on-prem stacks. ",
+        "Considerations: Availability, support, partner ecosystems, and licensing often shape near-term choices. ",
+        "Next steps: For specifics, benchmarks, and timelines, read the source article and vendor materials. "
       ].join('');
-      var safeTail = "Note: The feed provided limited summary text; this body adds neutral context and does not assert new facts beyond the linked headline. ";
+      var safeTail = "Note: The feed was terse; additional text adds neutral context without new facts. ";
       var pad = (sub? "" : "Summary: ") + generic + safeTail + (sourceHost? ("Source: "+sourceHost+". ") : "");
       bodyText = clampWords((bodyText + " " + pad), 155);
     }
 
     if (!sub) {
       sub = clampWords(bodyText, 30);
-      if (jaccard(sub, bodyText) > 0.8) {
-        sub = clampWords(txt, 30);
-      }
+      if (jaccard(sub, bodyText) > 0.8) { sub = clampWords(txt, 30); }
     }
     return { subhead: sub, body: bodyText };
   }
@@ -364,19 +330,21 @@
   // Cache helpers (offline boot)
   var CACHE_KEY = 'tnd_feeds_cache_v1';
   var CACHE_IDX = 'tnd_last_idx_v1';
-  function saveCache(obj){
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ when: Date.now(), data: obj })); } catch(e){}
-  }
-  function loadCache(){
-    try { var s=localStorage.getItem(CACHE_KEY); if(!s) return null; return JSON.parse(s); } catch(e){ return null; }
-  }
+  function saveCache(obj){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({ when: Date.now(), data: obj })); } catch(e){} }
+  function loadCache(){ try { var s=localStorage.getItem(CACHE_KEY); if(!s) return null; return JSON.parse(s); } catch(e){ return null; } }
   function saveIdx(i){ try{ localStorage.setItem(CACHE_IDX, String(i)); }catch(e){} }
   function loadIdx(){ var s=localStorage.getItem(CACHE_IDX); return s? (parseInt(s,10)||0) : 0; }
 
-  // Theme toggle
+  // Theme toggle (no CSS vars; just swap body class and colors stay similar)
   var THEME_KEY='tnd_theme';
   function applyTheme(theme){
-    document.body.classList.toggle('theme-sepia', theme==='sepia');
+    if (theme==='sepia') {
+      document.body.style.backgroundColor = '#19130c';
+      document.body.style.color = '#efe7dc';
+    } else {
+      document.body.style.backgroundColor = '#0b0f14';
+      document.body.style.color = '#e6edf3';
+    }
     $('themeBtn').textContent = 'Theme: ' + (theme==='sepia'?'Sepia':'Dark');
     try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
   }
@@ -387,7 +355,7 @@
   applyTheme(localStorage.getItem(THEME_KEY)||'dark');
 
   // Clock
-  function tickClock(){ $('clock').textContent = new Date().toLocaleTimeString('en-GB'); }
+  function tickClock(){ var c=$('clock'); if(c) c.textContent = new Date().toLocaleTimeString('en-GB'); }
   setInterval(tickClock, 1000); tickClock();
 
   // Ticker (≤6 headlines, last 24h, pause on hover/tap)
@@ -408,21 +376,21 @@
         if(!dupe) recent.push(list[j]);
       }
     }
-    var html=[];
-    for(i=0;i<recent.length;i++){
-      html.push('<span class="tick">'+escapeHTML(recent[i].source)+' · '+escapeHTML(recent[i].title)+'</span>');
+    var html=[], m;
+    for(m=0;m<recent.length;m++){
+      html.push('<span class="tick">'+escapeHTML(recent[m].source)+' · '+escapeHTML(recent[m].title)+'</span>');
     }
     inner.innerHTML = html.join('') + html.join('');
+    inner.style.webkitAnimationDuration = TICKER_SECONDS + 's';
     inner.style.animationDuration = TICKER_SECONDS + 's';
 
-    function togglePause(){ t.classList.toggle('paused'); }
-    t.onmouseenter = togglePause; t.onmouseleave = togglePause;
-    t.onclick = togglePause;
+    function togglePause(){ if (t.className.indexOf('paused')===-1) t.className+=' paused'; else t.className=t.className.replace(' paused',''); }
+    t.onmouseenter = togglePause; t.onmouseleave = togglePause; t.onclick = togglePause;
   }
 
   // Render card + favicon
   function setFavicon(hostname){
-    var ico = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent('https://' + hostname);
+    var ico = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent('https://' + (hostname||'')); // safe even if blank
     var img = $('favicon'), st = $('sourceText');
     if (img) img.src = ico;
     if (st) st.textContent = hostname || 'source';
@@ -452,9 +420,7 @@
         r=results[i]; if(!r.ok) continue;
         merged = merged.concat(parseFeedXML(r.text, r.url));
       }
-      merged = dedupeSmart(merged)
-               .sort(function(a,b){ return b.published - a.published; })
-               .slice(0, MAX_ITEMS);
+      merged = dedupeSmart(merged).sort(function(a,b){ return b.published - a.published; }).slice(0, MAX_ITEMS);
 
       var built=[], ii;
       for(ii=0; ii<merged.length; ii++){ built.push(buildItem(merged[ii])); }
@@ -501,6 +467,7 @@
   refresh(); startRotate(); setInterval(refresh, REFRESH_MS);
   var cached = loadCache(); if (cached && cached.data){ try{ useData(cached.data); }catch(_e){} }
 
+  // Clock start (already setInterval above)
 })();
 </script>
 </body>
