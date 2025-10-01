@@ -26,11 +26,8 @@
   .health.ok { background:#21d07a; } .health.stale { background:#e0a800; } .health.err { background:#e5534b; }
   .theme-btn { font-size:13px; padding:8px 10px; border-radius:999px; background:#121a26; color:#e6edf3; border:1px solid #101826; cursor:pointer; }
 
-  /* ===== Layout spacing =====
-     Default leaves room for fixed controls (bottom:58px) + ticker (48px)
-     and adds comfortable top padding so content never sits under the URL bar. */
+  /* ===== Main spacing ===== */
   main { flex:1; display:flex; align-items:center; justify-content:center; padding:28px 16px 170px; }
-  /* Short screens get more bottom padding automatically */
   @media (max-height: 640px) { main { padding-bottom: 200px; padding-top: 32px; } }
 
   .card {
@@ -48,7 +45,7 @@
   .subhead { font-size:19px; line-height:1.45; opacity:.95; margin:0 0 12px; font-style:italic; }
   .bodycopy { font-size:18px; line-height:1.58; opacity:.98; margin:0; }
 
-  /* ===== Controls: fixed above ticker, always clickable ===== */
+  /* ===== Wide footer controls (desktop/tablet modern) ===== */
   footer {
     position:fixed; left:0; right:0; bottom:58px; z-index:3;
     display:flex; gap:10px; align-items:center; justify-content:center;
@@ -57,7 +54,22 @@
   .btn:active { transform: translateY(1px); }
   .status { font-size:12px; opacity:.75; background:#0f1620; border:1px solid #101826; border-radius:999px; padding:8px 10px; }
 
-  /* ===== Ticker: fixed bottom ===== */
+  /* ===== Compact floating controls (for Lenovo YT3 & short viewports) ===== */
+  .controls-compact {
+    position:fixed; right:12px; bottom:60px; z-index:4;
+    display:none; /* enabled via .yt3 body class */
+    background:#0f1620; border:1px solid #101826; border-radius:999px;
+    box-shadow:0 8px 24px rgba(0,0,0,.35);
+    padding:6px; gap:6px;
+  }
+  .controls-compact .cbtn {
+    font-size:16px; line-height:1; padding:6px 8px; min-width:32px;
+    background:#121a26; color:#e6edf3; border:1px solid #101826;
+    border-radius:999px; cursor:pointer;
+  }
+  .controls-compact .cbtn:active { transform: translateY(1px); }
+
+  /* ===== Ticker ===== */
   .ticker { position:fixed; bottom:0; left:0; width:100%; height:48px;
     background:#0f1620; border-top:1px solid #101826; white-space:nowrap; overflow:hidden; z-index:2; }
   .ticker-inner { display:inline-block; padding:12px 0; -webkit-animation:scrollLeft 240s linear infinite; animation:scrollLeft 240s linear infinite; }
@@ -69,26 +81,27 @@
 
   @media (max-width:480px){ .title{font-size:24px} .subhead,.bodycopy{font-size:16px} }
 
-  /* ===== Sepia theme overrides (class on <body>) ===== */
+  /* ===== Sepia theme ===== */
   body.sepia { background:#19130c; color:#efe7dc; }
   body.sepia header { background:#231a12; border-bottom-color:#3a2e21; }
   body.sepia .theme-btn { background:#2a2017; color:#efe7dc; border-color:#3a2e21; }
   body.sepia .card { background:linear-gradient(180deg, #231a12 0%, #2a2017 100%); box-shadow:0 18px 60px rgba(0,0,0,.45); }
   body.sepia .srcpill { background:rgba(255,255,255,.06); border-color:#3a2e21; }
   body.sepia .btn, body.sepia .status { background:#231a12; color:#efe7dc; border-color:#3a2e21; }
+  body.sepia .controls-compact { background:#231a12; border-color:#3a2e21; }
+  body.sepia .controls-compact .cbtn { background:#2a2017; border-color:#3a2e21; }
   body.sepia .ticker { background:#231a12; border-top-color:#3a2e21; }
   body.sepia a { color:#ffd27a; }
 
-  /* ===== Lenovo YT3-850F specific tweaks =====
-     We apply these when we detect the model OR when the viewport height is ~800 or less. */
-  body.yt3 main { padding-top: 36px; padding-bottom: 220px; }
-  body.yt3 .btn { padding:8px 12px; }               /* slightly smaller buttons */
-  body.yt3 .status { padding:6px 8px; }
+  /* ===== Lenovo YT3-850F & short-height mode ===== */
+  body.yt3 main { padding-top: 40px; padding-bottom: 230px; }
+  body.yt3 footer { display:none; }          /* hide wide footer */
+  body.yt3 .controls-compact { display:flex; } /* show compact pill */
   @media (max-height: 820px) {
-    body.yt3 main { padding-top: 40px; padding-bottom: 230px; }
+    body.yt3 main { padding-top: 44px; padding-bottom: 250px; }
   }
   @media (max-height: 700px) {
-    body.yt3 main { padding-top: 44px; padding-bottom: 250px; }
+    body.yt3 main { padding-top: 48px; padding-bottom: 270px; }
   }
 </style>
 </head>
@@ -118,12 +131,20 @@
     </article>
   </main>
 
+  <!-- Wide footer (hidden on YT3) -->
   <footer>
     <button class="btn" id="prevBtn">◀ Prev</button>
     <button class="btn" id="pauseBtn">⏸ Pause</button>
     <button class="btn" id="nextBtn">Next ▶</button>
     <div class="status" id="status">—</div>
   </footer>
+
+  <!-- Compact floating controls (shown on YT3) -->
+  <div class="controls-compact" id="compactCtl" aria-label="Controls">
+    <button class="cbtn" id="cPrev" title="Previous">◀</button>
+    <button class="cbtn" id="cPause" title="Pause/Resume">▌▌</button>
+    <button class="cbtn" id="cNext" title="Next">▶</button>
+  </div>
 
   <div class="ticker" id="ticker" aria-live="polite" aria-label="Top headlines ticker">
     <div class="ticker-inner" id="tickerInner"></div>
@@ -133,7 +154,7 @@
 <script>
 (function(){
   /* ===== Version ===== */
-  var APP_VERSION = 'v1.9.4-yt3-tune';
+  var APP_VERSION = 'v1.9.5-yt3-compact';
 
   /* ===== Config (GitHub Pages) ===== */
   var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json?v=' + APP_VERSION;
@@ -152,7 +173,6 @@
     var ua = (navigator.userAgent || '').toUpperCase();
     var isYT3 = ua.indexOf('YT3-850F') !== -1 || ua.indexOf('YT3_850F') !== -1;
     if (isYT3) document.body.className += (document.body.className?' ':'') + 'yt3';
-    // Also add yt3 class when height is small (landscape on 8" tablets)
     if (window.innerHeight <= 820) {
       if (document.body.className.indexOf('yt3') === -1)
         document.body.className += (document.body.className?' ':'') + 'yt3';
@@ -180,106 +200,62 @@
     else { h.className='health ok'; h.title='Fresh ('+ageMin+'m)'; }
   }
 
-  // Safe hostname parsing for legacy browsers (no new URL())
+  // Safe hostname parsing (no new URL())
   var _a = document.createElement('a');
-  function host(u){
-    if (!u) return '';
-    try { _a.href = u; return (_a.hostname || '').replace(/^www\./,''); }
-    catch(e){ return ''; }
-  }
+  function host(u){ if(!u) return ''; try{ _a.href=u; return (_a.hostname||'').replace(/^www\./,''); }catch(e){ return ''; } }
 
-  // Strip tags & bullets; decode entities
+  // Strip tags & bullets
   function htmlToTextNoBullets(s){
     if (!s) return '';
-    var div = document.createElement('div'); div.innerHTML = String(s);
-    var txt = (div.textContent || div.innerText || '') || '';
-    txt = txt.replace(/<[^>]*>/g,' ');
-    txt = txt.replace(/\r?\n+/g, '\n');
-    var bulletStart = /^(?:\s*[\u2022\u2219\u25CF\u25A0\u25AA\u00B7\-\*\u2013\u2014]+|\s*(?:\(?[0-9a-zA-Z]\)?[.)]))\s+/gm;
-    txt = txt.replace(bulletStart, '');
-    txt = txt.replace(/[\u2022\u00B7\u25CF\u25A0]+/g, ' ');
-    txt = txt.replace(/[ \t]+/g,' ').replace(/\s*\n\s*/g, ' ').trim();
+    var div=document.createElement('div'); div.innerHTML=String(s);
+    var txt=(div.textContent||div.innerText||'')||'';
+    txt=txt.replace(/<[^>]*>/g,' ');
+    txt=txt.replace(/\r?\n+/g,'\n');
+    var bulletStart=/^(?:\s*[\u2022\u2219\u25CF\u25A0\u25AA\u00B7\-\*\u2013\u2014]+|\s*(?:\(?[0-9a-zA-Z]\)?[.)]))\s+/gm;
+    txt=txt.replace(bulletStart,'');
+    txt=txt.replace(/[\u2022\u00B7\u25CF\u25A0]+/g,' ');
+    txt=txt.replace(/[ \t]+/g,' ').replace(/\s*\n\s*/g,' ').trim();
     return txt;
   }
-  function clampWords(s, n){
-    var t = htmlToTextNoBullets(s);
-    var w = t.split(/\s+/);
-    var out = w.slice(0, n).join(' ');
-    return out + (w.length > n ? '…' : '');
-  }
+  function clampWords(s,n){ var t=htmlToTextNoBullets(s); var w=t.split(/\s+/); var out=w.slice(0,n).join(' '); return out+(w.length>n?'…':''); }
   function wordCount(s){ return htmlToTextNoBullets(s).split(/\s+/).filter(Boolean).length; }
 
-  function parseDate(x){ var d=new Date(x); return isNaN(d.getTime())? new Date() : d; }
+  function parseDate(x){ var d=new Date(x); return isNaN(d.getTime())? new Date(): d; }
   function withinHours(d,h){ return (Date.now()-d.getTime()) <= h*3600*1000; }
   function escapeHTML(s){ return String(s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;","&gt;":">","\"":"&quot;"}[c];}); }
 
-  // Fuzzy similarity for de-dupe
+  // Dedupe helpers
   function norm(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim(); }
   function tokenSet(s){ var o={}, a=norm(s).split(' '), i; for(i=0;i<a.length;i++){ if(a[i]) o[a[i]]=1; } return o; }
-  function jaccard(a,b){
-    var A=tokenSet(a), B=tokenSet(b), inter=0, uni=0, k;
-    for(k in A){ if(A.hasOwnProperty(k)){ uni++; if(B[k]) inter++; } }
-    for(k in B){ if(B.hasOwnProperty(k) && !A[k]) uni++; }
-    return uni ? inter/uni : 0;
-  }
-  function shortHash(s){
-    var t = norm(s), i, h=0; for(i=0;i<t.length;i++){ h=((h<<5)-h)+t.charCodeAt(i); h|=0; }
-    return (h>>>0).toString(36).slice(0,12);
-  }
+  function jaccard(a,b){ var A=tokenSet(a),B=tokenSet(b),inter=0,uni=0,k; for(k in A){ if(A.hasOwnProperty(k)){ uni++; if(B[k]) inter++; }} for(k in B){ if(B.hasOwnProperty(k)&&!A[k]) uni++; } return uni? inter/uni:0; }
+  function shortHash(s){ var t=norm(s),i,h=0; for(i=0;i<t.length;i++){ h=((h<<5)-h)+t.charCodeAt(i); h|=0;} return (h>>>0).toString(36).slice(0,12); }
 
-  /* Lookbehind-free sentence splitter (legacy safe) */
+  // Legacy-safe sentence split
   function splitSentences(text){
-    var t = htmlToTextNoBullets(text);
-    var parts = t.split(/([.!?])\s+/);
-    var out = [], i, buf='';
-    for(i=0;i<parts.length;i++){
-      if (i % 2 === 0) { buf += parts[i]; }
-      else { buf += parts[i]; out.push(buf); buf=''; }
-    }
-    if (buf.trim()) out.push(buf);
-    return out;
+    var t=htmlToTextNoBullets(text);
+    var parts=t.split(/([.!?])\s+/), out=[], i, buf='';
+    for(i=0;i<parts.length;i++){ if(i%2===0){ buf+=parts[i]; } else { buf+=parts[i]; out.push(buf); buf=''; } }
+    if(buf.trim()) out.push(buf); return out;
   }
 
-  // Build sub-head (≤30 words) and body (~150 words). Pad neutrally if too short.
   function buildSubAndBody(title, raw, sourceHost){
     var sentences = splitSentences(raw || title || '');
     if (sentences.length < 2) { sentences = (htmlToTextNoBullets(raw||title||'')).split(/[;,:]\s+/); }
-
-    var sub = '', bodyText = '';
-    for (var i=0;i<sentences.length;i++){
-      var s = sentences[i].trim();
-      if (s.length < 15) continue;
-      if (jaccard(s, title) > 0.7) continue;
-      sub = clampWords(s, 30);
-      break;
+    var sub='', bodyText='', i, j;
+    for(i=0;i<sentences.length;i++){ var s=sentences[i].trim(); if(s.length<15) continue; if(jaccard(s,title)>0.7) continue; sub=clampWords(s,30); break; }
+    var acc=[];
+    for(j=0;j<sentences.length;j++){ var t=sentences[j].trim(); if(t.length<15) continue; if(jaccard(t,title)>0.7) continue; if(sub&&jaccard(t,sub)>0.7) continue; acc.push(t); if(acc.join(' ').split(/\s+/).length>=200) break; }
+    bodyText=clampWords(acc.join(' '),150);
+    if(wordCount(bodyText)<120){
+      var generic="Context: This update reflects activity across enterprise IT, data center infrastructure, and AI adoption. "+
+                  "Implications: Teams may weigh performance, cost, security, and integration with cloud or on-prem stacks. "+
+                  "Considerations: Availability, support, partner ecosystems, and licensing often shape near-term choices. "+
+                  "Next steps: For specifics, benchmarks, and timelines, read the source article and vendor materials. ";
+      var safeTail="Note: The feed was terse; additional text adds neutral context without new facts. ";
+      var pad=(sub?"":"Summary: ")+generic+safeTail+(sourceHost?("Source: "+sourceHost+". "):"");
+      bodyText=clampWords(bodyText+" "+pad,155);
     }
-    var acc = [];
-    for (var j=0;j<sentences.length;j++){
-      var t = sentences[j].trim();
-      if (t.length < 15) continue;
-      if (jaccard(t, title) > 0.7) continue;
-      if (sub && jaccard(t, sub) > 0.7) continue;
-      acc.push(t);
-      if (acc.join(' ').split(/\s+/).length >= 200) break;
-    }
-    bodyText = clampWords(acc.join(' '), 150);
-
-    if (wordCount(bodyText) < 120) {
-      var generic = [
-        "Context: This update reflects activity across enterprise IT, data center infrastructure, and AI adoption. ",
-        "Implications: Teams may weigh performance, cost, security, and integration with cloud or on-prem stacks. ",
-        "Considerations: Availability, support, partner ecosystems, and licensing often shape near-term choices. ",
-        "Next steps: For specifics, benchmarks, and timelines, read the source article and vendor materials. "
-      ].join('');
-      var safeTail = "Note: The feed was terse; additional text adds neutral context without new facts. ";
-      var pad = (sub? "" : "Summary: ") + generic + safeTail + (sourceHost? ("Source: "+sourceHost+". ") : "");
-      bodyText = clampWords((bodyText + " " + pad), 155);
-    }
-
-    if (!sub) {
-      sub = clampWords(bodyText, 30);
-      if (jaccard(sub, bodyText) > 0.8) { sub = clampWords(htmlToTextNoBullets(raw||title||''), 30); }
-    }
+    if(!sub){ sub=clampWords(bodyText,30); if(jaccard(sub,bodyText)>0.8){ sub=clampWords(htmlToTextNoBullets(raw||title||''),30);} }
     return { subhead: sub, body: bodyText };
   }
 
@@ -290,237 +266,166 @@
     if(rss && rss.length){
       for(var i=0;i<rss.length;i++){
         var it=rss[i];
-        var title = getText(it,'title');
-        var link  = getText(it,'link');
-        var desc  = getRaw(it,'description');
-        var date  = getText(it,'pubDate');
-        var src   = host(link) || host(sourceUrl);
-        out.push({ title:title, link:link, raw:desc || title, published:parseDate(date), source:src });
+        var title=getText(it,'title');
+        var link=getText(it,'link');
+        var desc=getRaw(it,'description');
+        var date=getText(it,'pubDate');
+        var src=host(link)||host(sourceUrl);
+        out.push({ title:title, link:link, raw:desc||title, published:parseDate(date), source:src });
       }
       return out;
     }
     var entries=doc.getElementsByTagName('entry');
     for(var j=0;j<entries.length;j++){
       var en=entries[j];
-      var titleA = getText(en,'title');
-      var linkEl = en.getElementsByTagName('link')[0];
-      var href   = (linkEl && (linkEl.getAttribute('href')||linkEl.textContent)) || '';
-      var sumA   = getRaw(en,'summary') || getRaw(en,'content');
-      var dateA  = getText(en,'updated') || getText(en,'published');
-      var srcA   = host(href) || host(sourceUrl);
-      out.push({ title:titleA, link:href, raw:sumA || titleA, published:parseDate(dateA), source:srcA });
+      var titleA=getText(en,'title');
+      var linkEl=en.getElementsByTagName('link')[0];
+      var href=(linkEl&&(linkEl.getAttribute('href')||linkEl.textContent))||'';
+      var sumA=getRaw(en,'summary')||getRaw(en,'content');
+      var dateA=getText(en,'updated')||getText(en,'published');
+      var srcA=host(href)||host(sourceUrl);
+      out.push({ title:titleA, link:href, raw:sumA||titleA, published:parseDate(dateA), source:srcA });
     }
     return out;
-
-    function getText(parent, tag){
-      var el = parent.getElementsByTagName(tag)[0];
-      if (!el) return '';
-      return (el.textContent || el.innerText || '').trim();
-    }
-    function getRaw(parent, tag){
-      var el = parent.getElementsByTagName(tag)[0];
-      if (!el) return '';
-      var t=''; if(el.childNodes&&el.childNodes.length){
-        for (var i=0;i<el.childNodes.length;i++){ var n=el.childNodes[i]; t+=(n.outerHTML||n.nodeValue||''); }
-      } else { t = el.textContent || el.innerText || ''; }
-      return (t||'').trim();
+    function getText(parent,tag){ var el=parent.getElementsByTagName(tag)[0]; if(!el) return ''; return (el.textContent||el.innerText||'').trim(); }
+    function getRaw(parent,tag){
+      var el=parent.getElementsByTagName(tag)[0]; if(!el) return '';
+      var t=''; if(el.childNodes&&el.childNodes.length){ for(var i=0;i<el.childNodes.length;i++){ var n=el.childNodes[i]; t+=(n.outerHTML||n.nodeValue||''); } }
+      else { t=el.textContent||el.innerText||''; } return (t||'').trim();
     }
   }
 
-  // Smart de-dupe across sources
+  // Smart de-dupe
   function dedupeSmart(arr){
     var out=[], seenTitles=[], seenHashes={}, i, it, t, h;
     for(i=0;i<arr.length;i++){
-      it = arr[i];
-      t = it.title || '';
-      h = shortHash((it.raw||'').slice(0,600));
-      var key = ((it.link||'')+'|'+t).toLowerCase();
-      if (seenHashes[key]) continue;
-      var dupe = false;
-      for (var j=0;j<seenTitles.length;j++){
-        var other = seenTitles[j];
-        if (jaccard(t, other) > 0.85) { dupe = true; break; }
-      }
-      if (dupe) continue;
-      if (h && seenHashes[h]) continue;
-
-      out.push(it);
-      seenTitles.push(t);
-      seenHashes[key] = 1;
-      if (h) seenHashes[h] = 1;
+      it=arr[i]; t=it.title||''; h=shortHash((it.raw||'').slice(0,600));
+      var key=((it.link||'')+'|'+t).toLowerCase();
+      if(seenHashes[key]) continue;
+      var dupe=false; for(var j=0;j<seenTitles.length;j++){ if(jaccard(t,seenTitles[j])>0.85){ dupe=true; break; } }
+      if(dupe) continue; if(h&&seenHashes[h]) continue;
+      out.push(it); seenTitles.push(t); seenHashes[key]=1; if(h) seenHashes[h]=1;
     }
     return out;
   }
 
   // Build final display item
   function buildItem(raw){
-    var pieces = buildSubAndBody(raw.title, raw.raw, raw.source);
-    return {
-      title: raw.title,
-      link: raw.link,
-      source: raw.source,
-      subhead: pieces.subhead,
-      body: pieces.body,
-      published: raw.published
-    };
+    var pieces=buildSubAndBody(raw.title, raw.raw, raw.source);
+    return { title:raw.title, link:raw.link, source:raw.source, subhead:pieces.subhead, body:pieces.body, published:raw.published };
   }
 
-  // XHR helper with timeout
+  // XHR helper
   function xhrJSON(url, cb){
-    var x=new XMLHttpRequest();
-    x.open('GET', url, true);
-    x.timeout = 15000;
-    x.onreadystatechange=function(){
-      if(x.readyState===4){
-        try{
-          if(x.status>=200 && x.status<300){ cb(null, JSON.parse(x.responseText)); }
-          else { cb(new Error('HTTP '+x.status)); }
-        } catch(e){ cb(e); }
-      }
-    };
-    x.ontimeout = function(){ cb(new Error('Timeout')); };
-    x.send();
+    var x=new XMLHttpRequest(); x.open('GET', url, true); x.timeout=15000;
+    x.onreadystatechange=function(){ if(x.readyState===4){ try{ if(x.status>=200&&x.status<300){ cb(null, JSON.parse(x.responseText)); } else { cb(new Error('HTTP '+x.status)); } } catch(e){ cb(e);} } };
+    x.ontimeout=function(){ cb(new Error('Timeout')); }; x.send();
   }
 
-  // Cache helpers (offline boot)
-  var CACHE_KEY = 'tnd_feeds_cache_v1';
-  var CACHE_IDX = 'tnd_last_idx_v1';
-  function saveCache(obj){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({ when: Date.now(), data: obj })); } catch(e){} }
-  function loadCache(){ try { var s=localStorage.getItem(CACHE_KEY); if(!s) return null; return JSON.parse(s); } catch(e){ return null; } }
+  // Cache
+  var CACHE_KEY='tnd_feeds_cache_v1', CACHE_IDX='tnd_last_idx_v1';
+  function saveCache(obj){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ when:Date.now(), data:obj })); }catch(e){} }
+  function loadCache(){ try{ var s=localStorage.getItem(CACHE_KEY); if(!s) return null; return JSON.parse(s); }catch(e){ return null; } }
   function saveIdx(i){ try{ localStorage.setItem(CACHE_IDX, String(i)); }catch(e){} }
-  function loadIdx(){ var s=localStorage.getItem(CACHE_IDX); return s? (parseInt(s,10)||0) : 0; }
+  function loadIdx(){ var s=localStorage.getItem(CACHE_IDX); return s? (parseInt(s,10)||0):0; }
 
-  // Theme toggle using body class (works everywhere)
+  // Theme
   var THEME_KEY='tnd_theme';
   function applyTheme(theme){
-    var body = document.body;
-    if (theme==='sepia') {
-      if (body.className.indexOf('sepia')===-1) body.className += (body.className ? ' ' : '') + 'sepia';
-      $('themeBtn').textContent = 'Theme: Sepia';
-    } else {
-      body.className = body.className.replace(/\bsepia\b/g, '').replace(/\s{2,}/g,' ').trim();
-      $('themeBtn').textContent = 'Theme: Dark';
-    }
+    var body=document.body;
+    if(theme==='sepia'){ if(body.className.indexOf('sepia')===-1) body.className+=(body.className?' ':'')+'sepia'; $('themeBtn').textContent='Theme: Sepia'; }
+    else { body.className=body.className.replace(/\bsepia\b/g,'').replace(/\s{2,}/g,' ').trim(); $('themeBtn').textContent='Theme: Dark'; }
     try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
   }
-  $('themeBtn').onclick=function(){
-    var cur = (localStorage.getItem(THEME_KEY)||'dark');
-    applyTheme(cur==='dark' ? 'sepia' : 'dark');
-  };
+  $('themeBtn').onclick=function(){ var cur=(localStorage.getItem(THEME_KEY)||'dark'); applyTheme(cur==='dark'?'sepia':'dark'); };
   applyTheme(localStorage.getItem(THEME_KEY)||'dark');
 
   // Clock
-  function tickClock(){ var c=$('clock'); if(c) c.textContent = new Date().toLocaleTimeString('en-GB'); }
-  setInterval(tickClock, 1000); tickClock();
+  function tickClock(){ var c=$('clock'); if(c) c.textContent=new Date().toLocaleTimeString('en-GB'); }
+  setInterval(tickClock,1000); tickClock();
 
-  // Ticker (≤6 headlines, last 24h, pause on hover/tap)
+  // Ticker
   function updateTicker(list){
     var t=$('ticker'), inner=$('tickerInner'); if(!t||!inner) return;
-
     var recent=[], i, j, k;
-    for (i=0;i<list.length;i++){
-      if (withinHours(list[i].published, TICKER_HOURS)) recent.push(list[i]);
-      if (recent.length >= TICKER_MAX) break;
-    }
-    if (recent.length < TICKER_MAX){
-      for (j=0;j<list.length && recent.length<TICKER_MAX; j++){
-        var dupe=false;
-        for(k=0;k<recent.length;k++){
-          if (recent[k].title===list[j].title && recent[k].source===list[j].source){ dupe=true; break; }
-        }
-        if(!dupe) recent.push(list[j]);
-      }
-    }
-    var html=[], m;
-    for(m=0;m<recent.length;m++){
-      html.push('<span class="tick">'+escapeHTML(recent[m].source)+' · '+escapeHTML(recent[m].title)+'</span>');
-    }
-    inner.innerHTML = html.join('') + html.join('');
-    inner.style.webkitAnimationDuration = TICKER_SECONDS + 's';
-    inner.style.animationDuration = TICKER_SECONDS + 's';
-
-    function togglePause(){ if (t.className.indexOf('paused')===-1) t.className+=' paused'; else t.className=t.className.replace(' paused',''); }
-    t.onmouseenter = togglePause; t.onmouseleave = togglePause; t.onclick = togglePause;
+    for(i=0;i<list.length;i++){ if(withinHours(list[i].published, TICKER_HOURS)) recent.push(list[i]); if(recent.length>=TICKER_MAX) break; }
+    if(recent.length<TICKER_MAX){ for(j=0;j<list.length && recent.length<TICKER_MAX; j++){ var dupe=false; for(k=0;k<recent.length;k++){ if(recent[k].title===list[j].title && recent[k].source===list[j].source){ dupe=true; break; } } if(!dupe) recent.push(list[j]); } }
+    var html=[], m; for(m=0;m<recent.length;m++){ html.push('<span class="tick">'+escapeHTML(recent[m].source)+' · '+escapeHTML(recent[m].title)+'</span>'); }
+    inner.innerHTML=html.join('')+html.join(''); inner.style.webkitAnimationDuration=TICKER_SECONDS+'s'; inner.style.animationDuration=TICKER_SECONDS+'s';
+    function togglePause(){ if(t.className.indexOf('paused')===-1) t.className+=' paused'; else t.className=t.className.replace(' paused',''); }
+    t.onmouseenter=togglePause; t.onmouseleave=togglePause; t.onclick=togglePause;
   }
 
-  // Render card + favicon
+  // Render
   function setFavicon(hostname){
-    var ico = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent('https://' + (hostname||'')); // safe even if blank
-    var img = $('favicon'), st = $('sourceText');
-    if (img) img.src = ico;
-    if (st) st.textContent = hostname || 'source';
+    var ico='https://www.google.com/s2/favicons?sz=64&domain='+encodeURIComponent('https://'+(hostname||''));
+    var img=$('favicon'), st=$('sourceText'); if(img) img.src=ico; if(st) st.textContent=hostname||'source';
   }
-
   function render(){
     if(!items.length) return;
     var it=items[idx%items.length];
-    setFavicon(it.source || '');
-    $('title').innerHTML = '<a href="'+it.link+'" target="_blank" rel="noopener">'+escapeHTML(it.title)+'</a>';
-    $('meta').textContent = it.published.toLocaleString('en-GB');
-    $('subhead').textContent = it.subhead || '';
-    $('body').textContent = it.body || '';
-
-    saveIdx(idx);
-    setHeaderStatus();
+    setFavicon(it.source||'');
+    $('title').innerHTML='<a href="'+it.link+'" target="_blank" rel="noopener">'+escapeHTML(it.title)+'</a>';
+    $('meta').textContent=it.published.toLocaleString('en-GB');
+    $('subhead').textContent=it.subhead||'';
+    $('body').textContent=it.body||'';
+    saveIdx(idx); setHeaderStatus();
   }
   function next(){ idx=(idx+1)%items.length; render(); }
   function prev(){ idx=(idx-1+items.length)%items.length; render(); }
   function startRotate(){ if(timer) clearInterval(timer); timer=setInterval(function(){ if(!paused&&items.length) next(); }, ROTATE_MS); }
 
-  // Use data pipeline
+  // Data pipeline
   function useData(data){
     try{
-      var merged=[], results=(data&&data.results)||[], r, i;
-      for(i=0;i<results.length;i++){
-        r=results[i]; if(!r.ok) continue;
-        merged = merged.concat(parseFeedXML(r.text, r.url));
-      }
-      merged = dedupeSmart(merged).sort(function(a,b){ return b.published - a.published; }).slice(0, MAX_ITEMS);
-
-      var built=[], ii;
-      for(ii=0; ii<merged.length; ii++){ built.push(buildItem(merged[ii])); }
-
-      items = built;
-      var li = loadIdx(); if (li && li < items.length) idx = li; else idx = 0;
-
-      render(); updateTicker(items);
-      saveCache(data);
-
-      lastFetchOK = true; lastFetchAt = Date.now();
-      setStatus('Updated '+items.length+' items');
-    }catch(e){
-      setStatus('Parse error: '+e);
-      lastFetchOK = false; setHeaderStatus();
-    }
+      var merged=[], results=(data&&data.results)||[], r,i;
+      for(i=0;i<results.length;i++){ r=results[i]; if(!r.ok) continue; merged=merged.concat(parseFeedXML(r.text, r.url)); }
+      merged=dedupeSmart(merged).sort(function(a,b){ return b.published-a.published; }).slice(0,MAX_ITEMS);
+      var built=[], ii; for(ii=0; ii<merged.length; ii++){ built.push(buildItem(merged[ii])); }
+      items=built; var li=loadIdx(); if(li && li<items.length) idx=li; else idx=0;
+      render(); updateTicker(items); saveCache(data);
+      lastFetchOK=true; lastFetchAt=Date.now(); setStatus('Updated '+items.length+' items');
+    }catch(e){ setStatus('Parse error: '+e); lastFetchOK=false; setHeaderStatus(); }
   }
-
   function refresh(){
     setStatus('Refreshing…');
-    xhrJSON(FEEDS_URL + '&t=' + Date.now(), function(err, data){
+    xhrJSON(FEEDS_URL+'&t='+Date.now(), function(err,data){
       if(err || !data){
-        var cache = loadCache();
-        lastFetchOK = false;
-        if (cache && cache.data){
-          useData(cache.data);
-          setStatus('Offline • using cached feeds');
-        } else {
-          setStatus('Fetch error and no cache');
-        }
-        setHeaderStatus();
-        return;
+        var cache=loadCache(); lastFetchOK=false;
+        if(cache && cache.data){ useData(cache.data); setStatus('Offline • using cached feeds'); }
+        else { setStatus('Fetch error and no cache'); }
+        setHeaderStatus(); return;
       }
       useData(data);
     });
   }
 
-  // Buttons
-  $('nextBtn').onclick=function(){ paused=true; $('pauseBtn').textContent='▶ Resume'; next(); };
-  $('prevBtn').onclick=function(){ paused=true; $('pauseBtn').textContent='▶ Resume'; prev(); };
-  $('pauseBtn').onclick=function(){ paused=!paused; this.textContent=paused?'▶ Resume':'⏸ Pause'; };
+  // Wire both control UIs
+  function hookControls(){
+    var widePrev=$('prevBtn'), widePause=$('pauseBtn'), wideNext=$('nextBtn');
+    var cPrev=$('cPrev'), cPause=$('cPause'), cNext=$('cNext');
+
+    function doPrev(){ paused=true; if(widePause) widePause.textContent='▶ Resume'; if(cPause) cPause.textContent='▶'; prev(); }
+    function doNext(){ paused=true; if(widePause) widePause.textContent='▶ Resume'; if(cPause) cPause.textContent='▶'; next(); }
+    function doPause(){
+      paused=!paused;
+      if(widePause) widePause.textContent=paused?'▶ Resume':'⏸ Pause';
+      if(cPause) cPause.textContent=paused?'▶':'▌▌';
+    }
+
+    if(widePrev) widePrev.onclick=doPrev;
+    if(wideNext) wideNext.onclick=doNext;
+    if(widePause) widePause.onclick=doPause;
+
+    if(cPrev) cPrev.onclick=doPrev;
+    if(cNext) cNext.onclick=doNext;
+    if(cPause) cPause.onclick=doPause;
+  }
+  hookControls();
 
   // Init
   refresh(); startRotate(); setInterval(refresh, REFRESH_MS);
-  var cached = loadCache(); if (cached && cached.data){ try{ useData(cached.data); }catch(_e){} }
+  var cached=loadCache(); if(cached && cached.data){ try{ useData(cached.data); }catch(_e){} }
 })();
 </script>
 </body>
