@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Enterprise • DC • AI — Rolling News</title>
 <style>
-  /* Legacy-friendly: NO CSS variables, keep it simple */
+  /* ===== Base (Dark theme) ===== */
   html, body { height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
   body { background:#0b0f14; color:#e6edf3; }
   a { color:#8ab4ff; text-decoration:none; } a:hover { text-decoration:underline; }
@@ -51,7 +51,7 @@
   .btn:active { transform: translateY(1px); }
   .status { font-size:12px; opacity:.75; background:#0f1620; border:1px solid #101826; border-radius:999px; padding:8px 10px; }
 
-  /* Ticker: fixed at very bottom */
+  /* Ticker: fixed bottom */
   .ticker { position:fixed; bottom:0; left:0; width:100%; height:48px;
     background:#0f1620; border-top:1px solid #101826; white-space:nowrap; overflow:hidden; z-index:2; }
   .ticker-inner { display:inline-block; padding:12px 0; -webkit-animation:scrollLeft 240s linear infinite; animation:scrollLeft 240s linear infinite; }
@@ -62,6 +62,16 @@
   @keyframes scrollLeft { from { transform: translateX(0);} to { transform: translateX(-50%);} }
 
   @media (max-width:480px){ .title{font-size:24px} .subhead,.bodycopy{font-size:16px} }
+
+  /* ===== Sepia theme overrides (class on <body>) ===== */
+  body.sepia { background:#19130c; color:#efe7dc; }
+  body.sepia header { background:#231a12; border-bottom-color:#3a2e21; }
+  body.sepia .theme-btn { background:#2a2017; color:#efe7dc; border-color:#3a2e21; }
+  body.sepia .card { background:linear-gradient(180deg, #231a12 0%, #2a2017 100%); box-shadow:0 18px 60px rgba(0,0,0,.45); }
+  body.sepia .srcpill { background:rgba(255,255,255,.06); border-color:#3a2e21; }
+  body.sepia .btn, body.sepia .status { background:#231a12; color:#efe7dc; border-color:#3a2e21; }
+  body.sepia .ticker { background:#231a12; border-top-color:#3a2e21; }
+  body.sepia a { color:#ffd27a; }
 </style>
 </head>
 <body>
@@ -105,7 +115,7 @@
 <script>
 (function(){
   /* ===== Version ===== */
-  var APP_VERSION = 'v1.9.1-legacy-android';
+  var APP_VERSION = 'v1.9.2-legacy-safe';
 
   /* ===== Config (GitHub Pages) ===== */
   var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json?v=' + APP_VERSION;
@@ -184,13 +194,34 @@
     return (h>>>0).toString(36).slice(0,12);
   }
 
+  /* Lookbehind-free sentence splitter (legacy safe)
+     Splits on ., !, ? followed by whitespace, while keeping punctuation attached. */
+  function splitSentences(text){
+    var t = htmlToTextNoBullets(text);
+    var parts = t.split(/([.!?])\s+/); // capture delimiters
+    var out = [], i, buf='';
+    for(i=0;i<parts.length;i++){
+      if (i % 2 === 0) { // text chunk
+        buf += parts[i];
+      } else { // delimiter
+        buf += parts[i];
+        out.push(buf);
+        buf = '';
+      }
+    }
+    if (buf.trim()) out.push(buf);
+    return out;
+  }
+
   // Build sub-head (≤30 words) and body (target 150 words). Pad neutrally if too short.
   function buildSubAndBody(title, raw, sourceHost){
-    var txt = htmlToTextNoBullets(raw || title || '');
-    var sentences = txt.split(/(?<=[.!?])\s+/);
-    if (sentences.length < 2) sentences = txt.split(/[;,:]\s+/);
+    var sentences = splitSentences(raw || title || '');
+    if (sentences.length < 2) { // fallback split if needed
+      sentences = (htmlToTextNoBullets(raw||title||'')).split(/[;,:]\s+/);
+    }
 
     var sub = '', bodyText = '';
+    // Sub-head: first sentence not too similar to title
     for (var i=0;i<sentences.length;i++){
       var s = sentences[i].trim();
       if (s.length < 15) continue;
@@ -198,6 +229,7 @@
       sub = clampWords(s, 30);
       break;
     }
+    // Body: remaining sentences, avoiding near-duplicates
     var acc = [];
     for (var j=0;j<sentences.length;j++){
       var t = sentences[j].trim();
@@ -209,6 +241,7 @@
     }
     bodyText = clampWords(acc.join(' '), 150);
 
+    // Pad neutrally if still short
     if (wordCount(bodyText) < 120) {
       var generic = [
         "Context: This update reflects activity across enterprise IT, data center infrastructure, and AI adoption. ",
@@ -223,7 +256,7 @@
 
     if (!sub) {
       sub = clampWords(bodyText, 30);
-      if (jaccard(sub, bodyText) > 0.8) { sub = clampWords(txt, 30); }
+      if (jaccard(sub, bodyText) > 0.8) { sub = clampWords(htmlToTextNoBullets(raw||title||''), 30); }
     }
     return { subhead: sub, body: bodyText };
   }
@@ -335,17 +368,17 @@
   function saveIdx(i){ try{ localStorage.setItem(CACHE_IDX, String(i)); }catch(e){} }
   function loadIdx(){ var s=localStorage.getItem(CACHE_IDX); return s? (parseInt(s,10)||0) : 0; }
 
-  // Theme toggle (no CSS vars; just swap body class and colors stay similar)
+  // Theme toggle using body class (works everywhere)
   var THEME_KEY='tnd_theme';
   function applyTheme(theme){
+    var body = document.body;
     if (theme==='sepia') {
-      document.body.style.backgroundColor = '#19130c';
-      document.body.style.color = '#efe7dc';
+      if (body.className.indexOf('sepia')===-1) body.className += (body.className ? ' ' : '') + 'sepia';
+      $('themeBtn').textContent = 'Theme: Sepia';
     } else {
-      document.body.style.backgroundColor = '#0b0f14';
-      document.body.style.color = '#e6edf3';
+      body.className = body.className.replace(/\bsepia\b/g, '').replace(/\s{2,}/g,' ').trim();
+      $('themeBtn').textContent = 'Theme: Dark';
     }
-    $('themeBtn').textContent = 'Theme: ' + (theme==='sepia'?'Sepia':'Dark');
     try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
   }
   $('themeBtn').onclick=function(){
@@ -467,7 +500,7 @@
   refresh(); startRotate(); setInterval(refresh, REFRESH_MS);
   var cached = loadCache(); if (cached && cached.data){ try{ useData(cached.data); }catch(_e){} }
 
-  // Clock start (already setInterval above)
+  // Clock started above
 })();
 </script>
 </body>
