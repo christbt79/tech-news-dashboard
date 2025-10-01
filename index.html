@@ -25,7 +25,7 @@
   .clock{ font-variant-numeric: tabular-nums; }
   .health{ width:10px; height:10px; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,.25); }
   .health.ok{ background:#21d07a;} .health.stale{ background:#e0a800;} .health.err{ background:#e5534b;}
-  .theme-btn{ font-size:13px; padding:8px 10px; border-radius:999px; background:#121a26; color:#e6edf3; border:1px solid #101826; cursor:pointer; }
+  .theme-btn, .scale-btn{ font-size:13px; padding:8px 10px; border-radius:999px; background:#121a26; color:#e6edf3; border:1px solid #101826; cursor:pointer; }
 
   /* ===== Main spacing ===== */
   main{ flex:1; display:flex; align-items:center; justify-content:center; padding:28px 16px 170px; }
@@ -58,14 +58,15 @@
   /* ===== Compact floating controls (Lenovo/short) ===== */
   .controls-compact{
     position:fixed; right:12px; bottom:60px; z-index:4;
-    display:none; background:#0f1620; border:1px solid #101826; border-radius:999px;
-    box-shadow:0 8px 24px rgba(0,0,0,.35); padding:6px; gap:6px;
+    display:none; background:#0f1620; border:1px solid #101826; border-radius:16px;
+    box-shadow:0 8px 24px rgba(0,0,0,.35); padding:6px; gap:6px; align-items:center;
   }
   .controls-compact .cbtn{
     font-size:16px; line-height:1; padding:6px 8px; min-width:32px;
     background:#121a26; color:#e6edf3; border:1px solid #101826; border-radius:999px; cursor:pointer;
   }
   .controls-compact .cbtn:active{ transform:translateY(1px); }
+  .controls-compact .sep{ width:1px; height:20px; background:#101826; opacity:.6; }
 
   /* ===== Ticker ===== */
   .ticker{ position:fixed; bottom:0; left:0; width:100%; height:48px; background:#0f1620; border-top:1px solid #101826; white-space:nowrap; overflow:hidden; z-index:2; }
@@ -81,7 +82,7 @@
   /* ===== Sepia theme ===== */
   body.sepia{ background:#19130c; color:#efe7dc; }
   body.sepia header{ background:#231a12; border-bottom-color:#3a2e21; }
-  body.sepia .theme-btn{ background:#2a2017; color:#efe7dc; border-color:#3a2e21;}
+  body.sepia .theme-btn, body.sepia .scale-btn{ background:#2a2017; color:#efe7dc; border-color:#3a2e21;}
   body.sepia .card{ background:linear-gradient(180deg,#231a12 0%,#2a2017 100%); box-shadow:0 18px 60px rgba(0,0,0,.45); }
   body.sepia .srcpill{ background:rgba(255,255,255,.06); border-color:#3a2e21; }
   body.sepia .btn, body.sepia .status{ background:#231a12; color:#efe7dc; border-color:#3a2e21;}
@@ -91,25 +92,27 @@
   body.sepia a{ color:#ffd27a; }
 
   /* ===== Lenovo YT3-850F & short-height mode ===== */
-  /* Compact header: smaller fonts, less padding, hide Theme button */
+  /* Compact header: smaller fonts; hide Theme button on tablet to save space */
   body.yt3 header{ padding:6px 10px; }
   body.yt3 .brand{ font-size:16px; letter-spacing:.03em; }
   body.yt3 .ts{ font-size:12px; }
   body.yt3 #themeBtn{ display:none; }
-  /* Tighter, smaller typography */
-  body.yt3 .title{ font-size:26px; }
-  body.yt3 .subhead{ font-size:17px; }
-  body.yt3 .bodycopy{ font-size:17px; line-height:1.52; }
-  /* Spacing: extra top/btm to dodge URL/ticker; hide wide footer; show compact pill */
+  /* Default YT3 text scale is handled by JS via classes; base sizes stay as above */
+
+  /* Spacing: extra top/btm; hide wide footer; show compact pill */
   body.yt3 main{ padding-top:56px; padding-bottom:250px; }
   body.yt3 footer{ display:none; }
   body.yt3 .controls-compact{ display:flex; }
-  @media (max-height:820px){
-    body.yt3 main{ padding-top:62px; padding-bottom:270px; }
-  }
-  @media (max-height:700px){
-    body.yt3 main{ padding-top:70px; padding-bottom:290px; }
-  }
+  @media (max-height:820px){ body.yt3 main{ padding-top:62px; padding-bottom:270px; } }
+  @media (max-height:700px){ body.yt3 main{ padding-top:70px; padding-bottom:290px; } }
+
+  /* ===== Scales (JS toggles these classes) ===== */
+  /* Desktop/header scale buttons affect these; on YT3 you’ll likely choose 80% or 90% */
+  body.scale-110 .title{font-size:36px}  body.scale-110 .subhead{font-size:21px} body.scale-110 .bodycopy{font-size:20px}
+  body.scale-100 .title{font-size:32px}  body.scale-100 .subhead{font-size:19px} body.scale-100 .bodycopy{font-size:18px}
+  body.scale-90  .title{font-size:28px}  body.scale-90  .subhead{font-size:18px} body.scale-90  .bodycopy{font-size:17px}
+  body.scale-80  .title{font-size:25px}  body.scale-80  .subhead{font-size:17px} body.scale-80  .bodycopy{font-size:16px}
+  body.scale-70  .title{font-size:22px}  body.scale-70  .subhead{font-size:16px} body.scale-70  .bodycopy{font-size:15px}
 </style>
 </head>
 <body>
@@ -117,6 +120,8 @@
   <header>
     <div class="brand"><strong>Enterprise • Data Center • AI</strong> — Rolling News Display</div>
     <div class="right">
+      <button class="scale-btn" id="scaleDown" title="Smaller text">A−</button>
+      <button class="scale-btn" id="scaleUp" title="Larger text">A+</button>
       <div class="health ok" id="health" title="Status"></div>
       <div class="ts"><span class="clock" id="clock">--:--:--</span> • <span id="ts">Booting…</span></div>
       <button class="theme-btn" id="themeBtn" aria-label="Toggle theme">Theme: Dark</button>
@@ -151,6 +156,9 @@
     <button class="cbtn" id="cPrev" title="Previous">◀</button>
     <button class="cbtn" id="cPause" title="Pause/Resume">▌▌</button>
     <button class="cbtn" id="cNext" title="Next">▶</button>
+    <div class="sep"></div>
+    <button class="cbtn" id="cSmaller" title="Smaller text">A−</button>
+    <button class="cbtn" id="cLarger" title="Larger text">A+</button>
   </div>
 
   <div class="ticker" id="ticker" aria-live="polite" aria-label="Top headlines ticker">
@@ -161,7 +169,7 @@
 <script>
 (function(){
   /* ===== Version ===== */
-  var APP_VERSION = 'v1.9.6-yt3-compactheader';
+  var APP_VERSION = 'v1.9.7-scale';
 
   /* ===== Config (GitHub Pages) ===== */
   var FEEDS_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'feeds.json?v=' + APP_VERSION;
@@ -186,8 +194,9 @@
     }
   }
   applyDeviceClass();
-  window.addEventListener('orientationchange', function(){ setTimeout(adjustSafeInsets, 200); }, false);
-  window.addEventListener('resize', function(){ setTimeout(adjustSafeInsets, 200); }, false);
+
+  window.addEventListener('orientationchange', function(){ setTimeout(function(){applyDeviceClass(); adjustSafeInsets();}, 200); }, false);
+  window.addEventListener('resize', function(){ setTimeout(function(){applyDeviceClass(); adjustSafeInsets();}, 200); }, false);
 
   /* ===== State ===== */
   var items=[], idx=0, paused=false, timer=null;
@@ -316,7 +325,7 @@
     return out;
   }
 
-  // Build final display item
+  // Build display item
   function buildItem(raw){
     var pieces=buildSubAndBody(raw.title, raw.raw, raw.source);
     return { title:raw.title, link:raw.link, source:raw.source, subhead:pieces.subhead, body:pieces.body, published:raw.published };
@@ -340,12 +349,38 @@
   var THEME_KEY='tnd_theme';
   function applyTheme(theme){
     var body=document.body;
-    if(theme==='sepia'){ if(body.className.indexOf('sepia')===-1) body.className+=(body.className?' ':'')+'sepia'; $('themeBtn') && ($('themeBtn').textContent='Theme: Sepia'); }
-    else { body.className=body.className.replace(/\bsepia\b/g,'').replace(/\s{2,}/g,' ').trim(); $('themeBtn') && ($('themeBtn').textContent='Theme: Dark'); }
+    if(theme==='sepia'){ if(body.className.indexOf('sepia')===-1) body.className+=(body.className?' ':'')+'sepia'; var tb=$('themeBtn'); if(tb) tb.textContent='Theme: Sepia'; }
+    else { body.className=body.className.replace(/\bsepia\b/g,'').replace(/\s{2,}/g,' ').trim(); var tb2=$('themeBtn'); if(tb2) tb2.textContent='Theme: Dark'; }
     try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
   }
   var themeBtn=$('themeBtn'); if(themeBtn){ themeBtn.onclick=function(){ var cur=(localStorage.getItem(THEME_KEY)||'dark'); applyTheme(cur==='dark'?'sepia':'dark'); }; }
   applyTheme(localStorage.getItem(THEME_KEY)||'dark');
+
+  // ===== Text scale (A-/A+) =====
+  var SCALE_KEY='tnd_scale';  // values: 70,80,90,100,110
+  function applyScale(val){
+    val = val||100;
+    var cls = document.body.className.replace(/\bscale-\d+\b/g,'').replace(/\s{2,}/g,' ').trim();
+    document.body.className = (cls ? cls+' ' : '') + 'scale-' + val;
+    try{ localStorage.setItem(SCALE_KEY, String(val)); }catch(e){}
+    // Nudge insets after scale change
+    setTimeout(adjustSafeInsets, 50);
+  }
+  function currentScale(){
+    var s = parseInt(localStorage.getItem(SCALE_KEY)||'100',10);
+    if (s!==70 && s!==80 && s!==90 && s!==100 && s!==110) s=100;
+    return s;
+  }
+  function changeScale(delta){
+    var steps=[70,80,90,100,110];
+    var cur=currentScale(), idx=steps.indexOf(cur);
+    idx = Math.max(0, Math.min(steps.length-1, idx+delta));
+    applyScale(steps[idx]);
+  }
+  var sd=$('scaleDown'), su=$('scaleUp'); if(sd) sd.onclick=function(){ changeScale(-1); }; if(su) su.onclick=function(){ changeScale(1); };
+  // Compact pill buttons
+  var cs=$('cSmaller'), cl=$('cLarger'); if(cs) cs.onclick=function(){ changeScale(-1); }; if(cl) cl.onclick=function(){ changeScale(1); };
+  applyScale(currentScale());
 
   // Clock
   function tickClock(){ var c=$('clock'); if(c) c.textContent=new Date().toLocaleTimeString('en-GB'); }
@@ -376,29 +411,26 @@
     $('meta').textContent=it.published.toLocaleString('en-GB');
     $('subhead').textContent=it.subhead||'';
     $('body').textContent=it.body||'';
-    saveIdx(idx); setHeaderStatus();
-    adjustSafeInsets();
+    saveIdx(idx); setHeaderStatus(); adjustSafeInsets();
   }
   function next(){ idx=(idx+1)%items.length; render(); }
   function prev(){ idx=(idx-1+items.length)%items.length; render(); }
   function startRotate(){ if(timer) clearInterval(timer); timer=setInterval(function(){ if(!paused&&items.length) next(); }, ROTATE_MS); }
 
-  // Auto top-inset adjustment (legacy-safe)
+  // Auto top-inset adjustment (legacy-safe) – raised ceiling for stubborn cases
   function adjustSafeInsets(){
     try{
       var hdr=document.getElementsByTagName('header')[0];
       var mainEl=document.getElementsByTagName('main')[0];
       if(!hdr||!mainEl) return;
-      var hb=hdr.getBoundingClientRect().bottom;   // header bottom in viewport
-      var card=document.getElementById('card');
-      if(!card) return;
+      var hb=hdr.getBoundingClientRect().bottom;
+      var card=document.getElementById('card'); if(!card) return;
       var ct=card.getBoundingClientRect().top;
-      var needed = hb + 8; // want at least 8px gap below header
+      var needed = hb + 8;
       if(ct < needed){
         var extra = Math.ceil(needed - ct);
-        // Bump top padding, but clamp to a reasonable maximum
         var cur = parseInt(mainEl.style.paddingTop||window.getComputedStyle(mainEl).paddingTop,10) || 0;
-        var target = Math.min(cur + extra + 6, 120); // cap extra to avoid runaway
+        var target = Math.min(cur + extra + 6, 180); // cap at 180px
         mainEl.style.paddingTop = target + 'px';
       }
     }catch(_e){}
